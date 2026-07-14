@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Cairo } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin", "arabic"] });
+const cairo = Cairo({ subsets: ["latin", "arabic"] });
 
 import Providers from "@/components/Providers";
 
@@ -18,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl">
-      <body className={`${inter.className} antialiased bg-gray-50 text-gray-900`}>
+      <body className={`${cairo.className} antialiased bg-gray-50 text-gray-900`}>
         <Providers>
           {children}
         </Providers>
