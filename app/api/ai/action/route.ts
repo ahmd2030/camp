@@ -22,8 +22,8 @@ export async function POST(request: Request) {
 
     // --- الربط الحقيقي بنموذج Google Gemini ---
     const { object } = await generateObject({
-      // استخدام نموذج gemini-1.5-flash
-      model: google('gemini-1.5-flash'),
+      // استخدام نموذج gemini-pro (النسخة 1.0) لضمان التوافق التام
+      model: google('gemini-pro'),
       schema: z.object({
         type: z.string().describe('نوع المهمة المستنتجة باللغة الإنجليزية، مثلاً: generate_invoice, send_email, update_client'),
         isSensitive: z.boolean().describe('true إذا كانت المهمة تتعلق بالأموال، الفواتير، التعديل أو التواصل الخارجي. false للبحث فقط.'),
