@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { createAiAction } from '@/services/aiActionService'; 
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
+import { createAiAction } from '@/services/aiActionService'; // تأكد من المسار
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const prompt = body.prompt || body.context || 'حلل هذا الطلب';
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    // استخدام النموذج الحديث بدون أي إضافات
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    if (!apiKey) {
+      return NextResponse.json({ error: 'API Key is missing' }, { status: 500 });
+    }
 
     const systemPrompt = `
       أنت وكيل ذكاء اصطناعي إداري. قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل:
@@ -23,14 +22,26 @@ export async function POST(request: Request) {
       الطلب: ${prompt}
     `;
 
-    const result = await model.generateContent(systemPrompt);
-    const responseText = result.response.text();
-    
-    // تنظيف الرد لضمان أنه JSON صالح
+    // الاتصال المباشر بخوادم جوجل (بدون SDK)
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: systemPrompt }] }]
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || JSON.stringify(data));
+    }
+
+    const responseText = data.candidates[0].content.parts[0].text;
     const cleanedJson = responseText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     const aiDecision = JSON.parse(cleanedJson);
 
-    // تمرير القرار للخدمة
+    // تمرير القرار للخدمة لخصم الميزانية وإنشاء المهمة
     await createAiAction({
       type: aiDecision.type,
       isSensitive: aiDecision.isSensitive,
