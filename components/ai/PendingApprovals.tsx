@@ -5,7 +5,7 @@ import { AiAction } from '@/types/ai';
 import { CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { approveAction, rejectAction } from '@/services/aiActionService';
+// import { approveAction, rejectAction } from '@/services/aiActionService';
 
 export default function PendingApprovals() {
   const [pendingTasks, setPendingTasks] = useState<AiAction[]>([]);
@@ -34,19 +34,27 @@ export default function PendingApprovals() {
     return () => unsubscribe();
   }, []);
 
-  const handleApprove = async (id: string) => {
+  const handleUpdateStatus = async (id: string, newStatus: 'approved' | 'rejected') => {
     if (!id) return;
     setProcessingId(id);
-    await approveAction(id);
-    setProcessingId(null);
+    try {
+      const response = await fetch(`/api/ai/action/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (!response.ok) {
+        console.error('Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+    } finally {
+      setProcessingId(null);
+    }
   };
 
-  const handleReject = async (id: string) => {
-    if (!id) return;
-    setProcessingId(id);
-    await rejectAction(id);
-    setProcessingId(null);
-  };
+  const handleApprove = (id: string) => handleUpdateStatus(id, 'approved');
+  const handleReject = (id: string) => handleUpdateStatus(id, 'rejected');
 
   if (loading) {
     return (
