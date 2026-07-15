@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const prompt = body.prompt || body.context || 'حلل هذا الطلب';
 
     // استخدام النموذج الحديث بدون أي إضافات
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
     const systemPrompt = `
       أنت وكيل ذكاء اصطناعي إداري. قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل:
