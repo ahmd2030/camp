@@ -1,33 +1,51 @@
 import { NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createAiAction } from '@/services/aiActionService'; 
 
 export async function POST(request: Request) {
   try {
+    const body = await request.json();
+    const prompt = body.prompt || body.context || 'حلل هذا الطلب';
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ error: 'API Key is missing in Vercel' }, { status: 500 });
+      return NextResponse.json({ error: 'API Key is missing' }, { status: 500 });
     }
 
-    // الاتصال بخوادم جوجل لجلب قائمة النماذج المتاحة
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    const data = await res.json();
+    const genAI = new GoogleGenerativeAI(apiKey);
+    // استخدام النموذج المتوفر والمؤكد في القائمة
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const systemPrompt = `
+      أنت وكيل ذكاء اصطناعي إداري. قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل:
+      {
+        "type": "string",
+        "isSensitive": boolean,
+        "aiReasoning": "string",
+        "costEstimate": number
+      }
+      الطلب: ${prompt}
+    `;
+
+    const result = await model.generateContent(systemPrompt);
+    const responseText = result.response.text();
     
-    if (!res.ok) {
-      throw new Error(data.error?.message || 'Failed to fetch models');
-    }
+    const cleanedJson = responseText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    const aiDecision = JSON.parse(cleanedJson);
 
-    // استخراج أسماء النماذج وتجهيزها كنص
-    const availableModels = data.models 
-      ? data.models.map((m: any) => m.name.replace('models/', '')).join(', ') 
-      : 'No models found';
+    // حفظ المهمة في قاعدة البيانات
+    await createAiAction({
+      type: aiDecision.type,
+      isSensitive: aiDecision.isSensitive,
+      aiReasoning: aiDecision.aiReasoning,
+      costEstimate: aiDecision.costEstimate || 0.1,
+      context: body
+    });
 
-    // إرجاع الأسماء عمداً كخطأ 500 لكي تظهر باللون الأحمر في الواجهة الأمامية للمستخدم
-    return NextResponse.json({ 
-      error: `النماذج المتاحة لمفتاحك هي: ${availableModels}` 
-    }, { status: 500 });
+    return NextResponse.json({ success: true, decision: aiDecision }, { status: 200 });
 
   } catch (error: any) {
-    console.error("Discovery Route Error:", error);
+    console.error("API Route Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
