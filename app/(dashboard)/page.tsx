@@ -14,6 +14,8 @@ import {
 import { getClients, ClientData } from '@/services/clients';
 import { getTasks, TaskData } from '@/services/tasks';
 import { getUsers, UserData } from '@/services/users';
+import PendingApprovals from '@/components/ai/PendingApprovals';
+import AiCommandInterface from '@/components/ai/AiCommandInterface';
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
@@ -104,13 +106,15 @@ export default function Home() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-in-out">
-      {/* Header section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">مرحباً بك في لوحة القيادة</h1>
           <p className="text-gray-500 mt-1">إليك ملخص حي ومباشر لأداء أعمالك.</p>
         </div>
       </div>
+
+      <AiCommandInterface />
+      <PendingApprovals />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
