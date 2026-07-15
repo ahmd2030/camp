@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     // استخدام النموذج المتوفر والمؤكد في القائمة
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const systemPrompt = `
       أنت وكيل ذكاء اصطناعي إداري. قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل:
@@ -33,14 +33,14 @@ export async function POST(request: Request) {
     const cleanedJson = responseText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     const aiDecision = JSON.parse(cleanedJson);
 
-    // حفظ المهمة في قاعدة البيانات (معطل مؤقتاً للاختبار)
-    // await createAiAction({
-    //   type: aiDecision.type,
-    //   isSensitive: aiDecision.isSensitive,
-    //   aiReasoning: aiDecision.aiReasoning,
-    //   costEstimate: aiDecision.costEstimate || 0.1,
-    //   context: body
-    // });
+    // حفظ المهمة في قاعدة البيانات
+    await createAiAction({
+      type: aiDecision.type,
+      isSensitive: aiDecision.isSensitive,
+      aiReasoning: aiDecision.aiReasoning,
+      costEstimate: aiDecision.costEstimate || 0.1,
+      context: body
+    });
 
     console.log("AI Decision:", aiDecision);
     return NextResponse.json({ success: true, decision: aiDecision }, { status: 200 });
