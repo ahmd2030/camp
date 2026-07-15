@@ -1,69 +1,48 @@
 import { NextResponse } from 'next/server';
-import { createAiAction } from '@/services/aiActionService';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateObject } from 'ai';
-import { z } from 'zod';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createAiAction } from '@/services/aiActionService'; 
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { prompt, contextData } = body;
+    const prompt = body.prompt || body.context || 'حلل هذا الطلب';
 
-    // 1. التحقق من مفتاح الـ API وتكوين المزود صراحة
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    // استخدام النموذج الحديث بدون أي إضافات
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const systemPrompt = `
+      أنت وكيل ذكاء اصطناعي إداري. قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل:
+      {
+        "type": "string (نوع المهمة)",
+        "isSensitive": boolean (true إذا كانت حساسة، false للعادية),
+        "aiReasoning": "string (سبب اختيارك)",
+        "costEstimate": number (تكلفة تقديرية)
+      }
+      الطلب: ${prompt}
+    `;
+
+    const result = await model.generateContent(systemPrompt);
+    const responseText = result.response.text();
     
-    if (!apiKey) {
-      throw new Error("API Key is missing! Please add GOOGLE_GENERATIVE_AI_API_KEY to your environment variables.");
-    }
+    // تنظيف الرد لضمان أنه JSON صالح
+    const cleanedJson = responseText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    const aiDecision = JSON.parse(cleanedJson);
 
-    const google = createGoogleGenerativeAI({
-      apiKey: apiKey,
+    // تمرير القرار للخدمة
+    await createAiAction({
+      type: aiDecision.type,
+      isSensitive: aiDecision.isSensitive,
+      aiReasoning: aiDecision.aiReasoning,
+      costEstimate: aiDecision.costEstimate || 0.1,
+      context: body
     });
 
-    // --- الربط الحقيقي بنموذج Google Gemini ---
-    const { object } = await generateObject({
-      // استخدام نموذج gemini-pro (النسخة 1.0) لضمان التوافق التام
-      model: google('gemini-pro'),
-      schema: z.object({
-        type: z.string().describe('نوع المهمة المستنتجة باللغة الإنجليزية، مثلاً: generate_invoice, send_email, update_client'),
-        isSensitive: z.boolean().describe('true إذا كانت المهمة تتعلق بالأموال، الفواتير، التعديل أو التواصل الخارجي. false للبحث فقط.'),
-        costEstimate: z.number().describe('تكلفة تقديرية للعملية بالدولار، رقم عشري صغير مثل 0.05 أو 0.10.'),
-        aiReasoning: z.string().describe('نص باللغة العربية يشرح بدقة للمدير لماذا تم اختيار هذا الإجراء.'),
-      }),
-      prompt: `أنت وكيل إداري ذكي لنظام إدارة شركات (CRM).
-مهمتك تحليل طلب المدير وتحديد الإجراء الإداري المناسب لتنفيذه آلياً.
-طلب المدير: "${prompt}"
-${contextData ? `بيانات السياق الحالية: ${JSON.stringify(contextData)}` : ''}
-`,
-    });
-
-    const aiResponse = object;
-    // -------------------------------------------------------------
-
-    // تمرير قرار الذكاء الاصطناعي لخدمة المهام للتحقق من الميزانية وحفظها
-    const actionResult = await createAiAction({
-      type: aiResponse.type,
-      isSensitive: aiResponse.isSensitive,
-      costEstimate: aiResponse.costEstimate,
-      aiReasoning: aiResponse.aiReasoning,
-      context: contextData || { originalPrompt: prompt }
-    });
-
-    if (!actionResult.success) {
-      return NextResponse.json({ success: false, error: actionResult.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true, data: actionResult }, { status: 200 });
+    return NextResponse.json({ success: true, decision: aiDecision }, { status: 200 });
 
   } catch (error: any) {
-    // 2. معالجة الأخطاء وطباعتها بالتفصيل في السجلات
-    console.error("API Error Details:", error);
-    
-    // 3. إرجاع رسالة الخطأ الفعلية للواجهة الأمامية لتسهيل التتبع
-    return NextResponse.json({ 
-      success: false, 
-      error: error.message || "حدث خطأ غير معروف في الخادم",
-      details: error.toString()
-    }, { status: 500 });
+    console.error("API Route Error:", error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
