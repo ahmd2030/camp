@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     // استخدام النموذج المتوفر والمؤكد في القائمة
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
 
     const systemPrompt = `
       أنت وكيل ذكاء اصطناعي إداري. قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل:
