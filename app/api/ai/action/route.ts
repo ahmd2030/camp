@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAiAction } from '@/services/aiActionService';
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
@@ -9,9 +9,21 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { prompt, contextData } = body;
 
+    // 1. التحقق من مفتاح الـ API وتكوين المزود صراحة
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    
+    if (!apiKey) {
+      throw new Error("API Key is missing! Please add GOOGLE_GENERATIVE_AI_API_KEY to your environment variables.");
+    }
+
+    const google = createGoogleGenerativeAI({
+      apiKey: apiKey,
+    });
+
     // --- الربط الحقيقي بنموذج Google Gemini ---
     const { object } = await generateObject({
-      model: google('models/gemini-1.5-flash-latest'),
+      // استخدام نموذج gemini-1.5-flash لسرعته وتكلفته المنخفضة
+      model: google('models/gemini-1.5-flash'),
       schema: z.object({
         type: z.string().describe('نوع المهمة المستنتجة باللغة الإنجليزية، مثلاً: generate_invoice, send_email, update_client'),
         isSensitive: z.boolean().describe('true إذا كانت المهمة تتعلق بالأموال، الفواتير، التعديل أو التواصل الخارجي. false للبحث فقط.'),
@@ -43,8 +55,15 @@ ${contextData ? `بيانات السياق الحالية: ${JSON.stringify(cont
 
     return NextResponse.json({ success: true, data: actionResult }, { status: 200 });
 
-  } catch (error) {
-    console.error("Error in AI action route:", error);
-    return NextResponse.json({ success: false, error: "حدث خطأ داخلي في الخادم أثناء الاتصال بالذكاء الاصطناعي." }, { status: 500 });
+  } catch (error: any) {
+    // 2. معالجة الأخطاء وطباعتها بالتفصيل في السجلات
+    console.error("API Error Details:", error);
+    
+    // 3. إرجاع رسالة الخطأ الفعلية للواجهة الأمامية لتسهيل التتبع
+    return NextResponse.json({ 
+      success: false, 
+      error: error.message || "حدث خطأ غير معروف في الخادم",
+      details: error.toString()
+    }, { status: 500 });
   }
 }
