@@ -22,7 +22,7 @@ export async function POST(request: Request) {
         "type": "string",
         "isSensitive": boolean,
         "aiReasoning": "string",
-        "costEstimate": number
+        "costEstimate": number (تكلفة معالجة الذكاء الاصطناعي بالدولار، مثلا 0.1، وليس المبلغ المالي المذكور في الطلب)
       }
       الطلب: ${prompt}
     `;
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const aiDecision = JSON.parse(cleanedJson);
 
     // حفظ المهمة في قاعدة البيانات
-    await createAiAction({
+    const actionResult = await createAiAction({
       type: aiDecision.type,
       isSensitive: aiDecision.isSensitive,
       aiReasoning: aiDecision.aiReasoning,
@@ -42,8 +42,12 @@ export async function POST(request: Request) {
       context: body
     });
 
+    if (!actionResult.success) {
+      throw new Error(actionResult.message || 'فشل حفظ المهمة في قاعدة البيانات');
+    }
+
     console.log("AI Decision:", aiDecision);
-    return NextResponse.json({ success: true, decision: aiDecision }, { status: 200 });
+    return NextResponse.json({ success: true, decision: aiDecision, actionId: actionResult.id }, { status: 200 });
 
   } catch (error: any) {
     console.error("API Route Error:", error);
