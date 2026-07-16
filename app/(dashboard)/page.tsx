@@ -12,8 +12,9 @@ import {
 } from 'lucide-react';
 
 import { getClients, ClientData } from '@/services/clients';
-import { getTasks, TaskData } from '@/services/tasks';
 import { getUsers, UserData } from '@/services/users';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import PendingApprovals from '@/components/ai/PendingApprovals';
 import AiCommandInterface from '@/components/ai/AiCommandInterface';
 
@@ -21,36 +22,20 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [clientsCount, setClientsCount] = useState(0);
   const [usersCount, setUsersCount] = useState(0);
-  const [tasksStats, setTasksStats] = useState({ total: 0, completed: 0, completionRate: 0 });
-  const [recentTasks, setRecentTasks] = useState<TaskData[]>([]);
+  const [tasksStats, setTasksStats] = useState({ total: 0, completed: 0, completionRate: 0, pending: 0 });
+  const [recentTasks, setRecentTasks] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadDashboardData() {
       setLoading(true);
       try {
-        const [clientsData, tasksData, usersData] = await Promise.all([
+        const [clientsData, usersData] = await Promise.all([
           getClients(),
-          getTasks(),
           getUsers()
         ]);
 
-        // Clients Stats
         setClientsCount(clientsData.length);
-        
-        // Users Stats
         setUsersCount(usersData.length);
-
-        // Tasks Stats
-        const total = tasksData.length;
-        const completed = tasksData.filter(t => t.status === 'مكتملة').length;
-        const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-        setTasksStats({ total, completed, completionRate });
-
-        // Recent Tasks (Last 5)
-        // Note: Firestore doesn't sort by default without a timestamp field, 
-        // so we'll just take the last 5 returned elements as a proxy for "recent" for now.
-        setRecentTasks(tasksData.slice(-5).reverse());
-
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
@@ -59,6 +44,31 @@ export default function Home() {
     }
 
     loadDashboardData();
+
+    // استماع لحظي للمهام الذكية من Firestore
+    const unsubscribe = onSnapshot(collection(db, 'ai_actions'), (snapshot) => {
+      let pending = 0;
+      let completed = 0;
+      const recent: any[] = [];
+      
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.status === 'pending_approval') pending++;
+        else if (data.status === 'completed' || data.status === 'approved') completed++;
+        
+        recent.push({ id: doc.id, title: data.type.replace(/_/g, ' '), status: data.status === 'pending_approval' ? 'معلقة' : 'مكتملة', ...data });
+      });
+      
+      const total = pending + completed;
+      const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+      
+      setTasksStats({ total, completed, completionRate, pending });
+      setRecentTasks(recent.slice(-5).reverse());
+    }, (error) => {
+      console.error("Error listening to ai_actions:", error);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   if (loading) {
@@ -88,7 +98,7 @@ export default function Home() {
     },
     { 
       title: 'المهام المعلقة', 
-      value: (tasksStats.total - tasksStats.completed).toString(), 
+      value: tasksStats.pending.toString(), 
       trend: 'تتطلب الانتباه', 
       isUp: false, 
       icon: Clock,
@@ -178,7 +188,7 @@ export default function Home() {
                 <Clock className="w-8 h-8 text-yellow-500" />
                 <div>
                   <p className="text-sm text-gray-500">مهام قيد العمل / معلقة</p>
-                  <p className="text-xl font-bold text-gray-900">{tasksStats.total - tasksStats.completed}</p>
+                  <p className="text-xl font-bold text-gray-900">{tasksStats.pending}</p>
                 </div>
               </div>
             </div>
