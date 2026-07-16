@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       أنت وكيل ذكاء اصطناعي إداري. قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل:
       {
         "type": "string",
-        "isSensitive": boolean,
+        "isSensitive": boolean (يجب أن تكون true للعمليات المالية والفواتير والمهام الهامة),
         "aiReasoning": "string",
         "costEstimate": number (تكلفة معالجة الذكاء الاصطناعي بالدولار، مثلا 0.1، وليس المبلغ المالي المذكور في الطلب)
       }
