@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { FileText, Loader2, CheckCircle, Clock } from 'lucide-react';
+import { FileText, Loader2, CheckCircle, Clock, Check } from 'lucide-react';
 
 interface Invoice {
   id: string;
@@ -16,6 +16,24 @@ interface Invoice {
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const handlePayment = async (id: string) => {
+    if (!id) return;
+    setProcessingId(id);
+    try {
+      const response = await fetch(`/api/invoices/${id}`, {
+        method: 'PATCH',
+      });
+      if (!response.ok) {
+        console.error('Failed to mark invoice as paid');
+      }
+    } catch (error) {
+      console.error('Error updating invoice:', error);
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   useEffect(() => {
     // جلب الفواتير مع ترتيبها (أحدث الفواتير أولاً إن أمكن)
@@ -87,6 +105,7 @@ export default function InvoicesPage() {
                   <th className="p-4 text-right">المبلغ</th>
                   <th className="p-4 text-right">تاريخ الإنشاء</th>
                   <th className="p-4 text-right">الحالة</th>
+                  <th className="p-4 text-right">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -109,6 +128,27 @@ export default function InvoicesPage() {
                           <Clock className="w-3.5 h-3.5" />
                           غير مدفوعة
                         </span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {inv.status === 'paid' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-400">
+                          <Check className="w-4 h-4" />
+                          تم التحصيل
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handlePayment(inv.id)}
+                          disabled={processingId === inv.id}
+                          className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded-lg shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {processingId === inv.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                          تسديد
+                        </button>
                       )}
                     </td>
                   </tr>
