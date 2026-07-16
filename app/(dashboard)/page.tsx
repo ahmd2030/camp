@@ -8,7 +8,8 @@ import {
   CheckCircle2,
   ArrowUpRight,
   Clock,
-  Loader2
+  Loader2,
+  Banknote
 } from 'lucide-react';
 
 import { getClients, ClientData } from '@/services/clients';
@@ -22,6 +23,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [clientsCount, setClientsCount] = useState(0);
   const [usersCount, setUsersCount] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
   const [tasksStats, setTasksStats] = useState({ total: 0, completed: 0, completionRate: 0, pending: 0 });
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
 
@@ -68,7 +70,24 @@ export default function Home() {
       console.error("Error listening to ai_actions:", error);
     });
 
-    return () => unsubscribe();
+    // استماع لحظي للفواتير لحساب إجمالي الأرباح
+    const unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
+      let revenue = 0;
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.status === 'paid') {
+          revenue += Number(data.amount) || 0;
+        }
+      });
+      setTotalRevenue(revenue);
+    }, (error) => {
+      console.error("Error listening to invoices:", error);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeInvoices();
+    };
   }, []);
 
   if (loading) {
@@ -81,12 +100,12 @@ export default function Home() {
 
   const stats = [
     { 
-      title: 'إجمالي الموظفين', 
-      value: usersCount.toString(), 
-      trend: 'نشط', 
+      title: 'إجمالي الأرباح', 
+      value: `${totalRevenue.toLocaleString()} ريال`, 
+      trend: 'أرباح محصلة', 
       isUp: true, 
-      icon: Users,
-      color: 'bg-blue-500'
+      icon: Banknote,
+      color: 'bg-green-500'
     },
     { 
       title: 'إجمالي العملاء', 
