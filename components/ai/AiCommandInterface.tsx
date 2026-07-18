@@ -1,25 +1,50 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Sparkles, Send, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, Send, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
+
+interface Client {
+  id: string;
+  name: string;
+}
 
 export default function AiCommandInterface() {
   const [prompt, setPrompt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState("");
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'clients'), (snapshot) => {
+      const data: Client[] = [];
+      snapshot.forEach((doc) => {
+        data.push({ id: doc.id, name: doc.data().name });
+      });
+      setClients(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
 
     setIsSubmitting(true);
-    setMessage(null);
 
     try {
+      const selectedClient = clients.find(c => c.id === selectedClientId);
+      
       const response = await fetch('/api/ai/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim() })
+        body: JSON.stringify({ 
+          prompt: prompt.trim(),
+          clientId: selectedClientId || undefined,
+          clientName: selectedClient?.name || undefined
+        })
       });
 
       const result = await response.json();
@@ -29,13 +54,11 @@ export default function AiCommandInterface() {
       }
 
       setPrompt("");
-      setMessage({ type: 'success', text: 'تم استلام وتحليل الأمر بنجاح!' });
-      
-      // إخفاء رسالة النجاح بعد 4 ثوانٍ
-      setTimeout(() => setMessage(null), 4000);
+      setSelectedClientId("");
+      toast.success('تم استلام وتحليل الأمر بنجاح!');
       
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'فشل الاتصال بالخادم.' });
+      toast.error(error.message || 'فشل الاتصال بالخادم.');
     } finally {
       setIsSubmitting(false);
     }
@@ -54,30 +77,37 @@ export default function AiCommandInterface() {
           </div>
         </div>
         
-        <form onSubmit={handleSubmit} className="relative flex items-center w-full">
-          <input 
-            type="text" 
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 w-full">
+          <select
+            value={selectedClientId}
+            onChange={(e) => setSelectedClientId(e.target.value)}
             disabled={isSubmitting}
-            placeholder="مثال: قم بصياغة فاتورة جديدة لعميل التصميم بمبلغ 2500 ريال..." 
-            className="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-4 pr-4 pl-14 transition-all disabled:opacity-50 outline-none placeholder:text-gray-400"
-          />
-          <button 
-            type="submit" 
-            disabled={isSubmitting || !prompt.trim()}
-            className="absolute left-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg p-2.5 transition-all disabled:opacity-50 disabled:hover:bg-indigo-600 flex items-center justify-center shadow-sm"
+            className="sm:w-1/4 bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-4 transition-all outline-none"
           >
-            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 -ml-1 rtl:rotate-180" />}
-          </button>
-        </form>
+            <option value="">-- العميل (اختياري) --</option>
+            {clients.map(client => (
+              <option key={client.id} value={client.id}>{client.name}</option>
+            ))}
+          </select>
 
-        {message && (
-          <div className={`mt-4 flex items-center gap-2 text-sm font-medium p-3 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-            {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-            {message.text}
+          <div className="relative flex items-center flex-1">
+            <input 
+              type="text" 
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              disabled={isSubmitting}
+              placeholder="مثال: قم بصياغة فاتورة جديدة لعميل التصميم بمبلغ 2500 ريال..." 
+              className="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-4 pr-4 pl-14 transition-all disabled:opacity-50 outline-none placeholder:text-gray-400"
+            />
+            <button 
+              type="submit" 
+              disabled={isSubmitting || !prompt.trim()}
+              className="absolute left-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg p-2.5 transition-all disabled:opacity-50 disabled:hover:bg-indigo-600 flex items-center justify-center shadow-sm"
+            >
+              {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 -ml-1 rtl:rotate-180" />}
+            </button>
           </div>
-        )}
+        </form>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { 
   Users, 
   Building2,
@@ -9,15 +10,34 @@ import {
   ArrowUpRight,
   Clock,
   Loader2,
-  Banknote
+  Banknote,
+  TrendingUp
 } from 'lucide-react';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 
-import { getClients, ClientData } from '@/services/clients';
 import { getUsers, UserData } from '@/services/users';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import PendingApprovals from '@/components/ai/PendingApprovals';
 import AiCommandInterface from '@/components/ai/AiCommandInterface';
+
+const dummyChartData = [
+  { name: 'يناير', income: 4000, expenses: 2400 },
+  { name: 'فبراير', income: 3000, expenses: 1398 },
+  { name: 'مارس', income: 2000, expenses: 9800 },
+  { name: 'أبريل', income: 2780, expenses: 3908 },
+  { name: 'مايو', income: 1890, expenses: 4800 },
+  { name: 'يونيو', income: 2390, expenses: 3800 },
+  { name: 'يوليو', income: 3490, expenses: 4300 },
+];
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
@@ -34,7 +54,6 @@ export default function Home() {
         const [usersData] = await Promise.all([
           getUsers()
         ]);
-
         setUsersCount(usersData.length);
       } catch (error) {
         console.error("Error loading dashboard data:", error);
@@ -56,7 +75,7 @@ export default function Home() {
         if (data.status === 'pending_approval') pending++;
         else if (data.status === 'completed' || data.status === 'approved') completed++;
         
-        recent.push({ id: doc.id, title: data.type.replace(/_/g, ' '), status: data.status === 'pending_approval' ? 'معلقة' : 'مكتملة', ...data });
+        recent.push({ id: doc.id, title: data.type?.replace(/_/g, ' ') || 'مهمة', status: data.status === 'pending_approval' ? 'معلقة' : 'مكتملة', ...data });
       });
       
       const total = pending + completed;
@@ -96,6 +115,9 @@ export default function Home() {
     };
   }, []);
 
+  const totalExpenses = tasksStats.total * 0.05;
+  const netProfit = totalRevenue - totalExpenses;
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center min-h-[60vh]">
@@ -114,6 +136,14 @@ export default function Home() {
       color: 'bg-green-500'
     },
     { 
+      title: 'صافي الربح', 
+      value: `${netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ريال`, 
+      trend: 'الأرباح - المصروفات', 
+      isUp: netProfit >= 0, 
+      icon: TrendingUp,
+      color: netProfit >= 0 ? 'bg-emerald-500' : 'bg-red-500'
+    },
+    { 
       title: 'إجمالي العملاء', 
       value: clientsCount.toString(), 
       trend: 'حالي ومحتمل', 
@@ -129,22 +159,19 @@ export default function Home() {
       icon: Clock,
       color: 'bg-yellow-500'
     },
-    { 
-      title: 'معدل الإنجاز', 
-      value: `${tasksStats.completionRate}%`, 
-      trend: 'أداء المهام', 
-      isUp: true, 
-      icon: CheckCircle2,
-      color: 'bg-green-500'
-    },
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-in-out">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">مرحباً بك في لوحة القيادة</h1>
-          <p className="text-gray-500 mt-1">إليك ملخص حي ومباشر لأداء أعمالك.</p>
+          <p className="text-gray-500 mt-1">إليك ملخص حي ومباشر لأداء أعمالك مع نظام الوكلاء الذكي.</p>
         </div>
       </div>
 
@@ -182,41 +209,30 @@ export default function Home() {
         {/* Left Chart Area */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-2">
           <h3 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4 mb-6">
-            مستوى إنجاز المهام العام
+            مقارنة الإيرادات والمصروفات (تجريبي)
           </h3>
           
-          <div className="space-y-8 mt-8">
-            <div className="flex justify-between items-end mb-2">
-              <span className="text-sm font-semibold text-gray-700">نسبة الإنجاز ({tasksStats.completionRate}%)</span>
-              <span className="text-sm text-gray-500">{tasksStats.completed} من أصل {tasksStats.total} مهمة مكتملة</span>
-            </div>
-            
-            {/* Progress Bar Track */}
-            <div className="w-full h-6 bg-gray-100 rounded-full overflow-hidden shadow-inner flex">
-              {/* Completed Bar */}
-              <div 
-                className="h-full bg-gradient-to-l from-green-400 to-green-500 transition-all duration-1000 ease-out"
-                style={{ width: `${tasksStats.completionRate}%` }}
-              ></div>
-              {/* Pending space is inherently the remaining gray area */}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-8 pt-8 border-t border-gray-50">
-              <div className="bg-green-50 p-4 rounded-lg flex items-center gap-3 border border-green-100">
-                <CheckCircle2 className="w-8 h-8 text-green-500" />
-                <div>
-                  <p className="text-sm text-gray-500">مهام مكتملة</p>
-                  <p className="text-xl font-bold text-gray-900">{tasksStats.completed}</p>
-                </div>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-lg flex items-center gap-3 border border-yellow-100">
-                <Clock className="w-8 h-8 text-yellow-500" />
-                <div>
-                  <p className="text-sm text-gray-500">مهام قيد العمل / معلقة</p>
-                  <p className="text-xl font-bold text-gray-900">{tasksStats.pending}</p>
-                </div>
-              </div>
-            </div>
+          <div className="h-72 w-full mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={dummyChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="name" />
+                <YAxis />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <Tooltip />
+                <Area type="monotone" dataKey="income" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" name="الإيرادات" />
+                <Area type="monotone" dataKey="expenses" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" name="المصروفات" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
@@ -246,8 +262,7 @@ export default function Home() {
                       {task.title}
                     </p>
                     <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                      <span className="font-medium text-primary">{task.assignedTo}</span>
-                      {task.clientName && <span>• لعميل: {task.clientName}</span>}
+                      <span className="font-medium text-primary">{task.clientName ? `عميل: ${task.clientName}` : 'مهمة عامة'}</span>
                     </p>
                   </div>
                 </div>
@@ -256,6 +271,6 @@ export default function Home() {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

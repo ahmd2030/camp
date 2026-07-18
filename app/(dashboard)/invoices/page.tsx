@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { FileText, Loader2, CheckCircle, Clock, Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Invoice {
   id: string;
@@ -26,9 +28,13 @@ export default function InvoicesPage() {
         method: 'PATCH',
       });
       if (!response.ok) {
+        toast.error('فشل في تحصيل الفاتورة');
         console.error('Failed to mark invoice as paid');
+      } else {
+        toast.success('تم تحصيل الفاتورة بنجاح!');
       }
     } catch (error) {
+      toast.error('حدث خطأ أثناء الاتصال بالخادم');
       console.error('Error updating invoice:', error);
     } finally {
       setProcessingId(null);
@@ -78,7 +84,12 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-in-out">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -158,6 +169,6 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

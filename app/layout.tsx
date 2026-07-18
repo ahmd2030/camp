@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   description: "نظام متكامل لإدارة البيانات والمستخدمين",
 };
 
+import { Toaster } from 'sonner';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -20,6 +22,7 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <body className={`${cairo.className} antialiased bg-gray-50 text-gray-900`}>
         <Providers>
+          <Toaster position="top-center" richColors />
           {children}
         </Providers>
       </body>

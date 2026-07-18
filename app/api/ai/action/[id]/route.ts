@@ -3,6 +3,25 @@ import { approveAction, rejectAction } from '@/services/aiActionService';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
+// Dummy virtual card generator (CFO Engine Placeholder)
+async function generateVirtualCard(amount: number, description: string) {
+  console.log(`[CFO Engine] 💳 Generating Virtual Card via Stripe Issuing...`);
+  console.log(`[CFO Engine] Amount: $${amount}, Description: ${description}`);
+  
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  const cardNumber = `4000 1234 5678 ${Math.floor(1000 + Math.random() * 9000)}`;
+  console.log(`[CFO Engine] ✅ Virtual Card Generated: ${cardNumber}`);
+  
+  return {
+    success: true,
+    cardNumber,
+    cvv: "123",
+    expiry: "12/28"
+  };
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -24,27 +43,36 @@ export async function PATCH(
       if (actionSnap.exists()) {
         const actionData = actionSnap.data();
         
-        // 2. التحقق مما إذا كانت المهمة تخص فاتورة (مثلاً عن طريق type أو aiReasoning)
+        // استخراج المبلغ بشكل تقريبي من النص
+        const amountMatch = actionData.context?.prompt?.match(/\d+/);
+        const amount = amountMatch ? parseInt(amountMatch[0]) : 0;
+        const description = actionData.context?.prompt || actionData.aiReasoning || 'مهمة ذكية';
+
+        // 2. التحقق مما إذا كانت المهمة تخص فاتورة
         const isInvoice = actionData.type?.toLowerCase().includes('invoice') || 
+                          actionData.category === 'financial' ||
                           actionData.aiReasoning?.includes('فاتورة');
                           
         if (isInvoice) {
-          // استخراج المبلغ بشكل تقريبي من النص (إن وُجد) أو وضع 0
-          const amountMatch = actionData.context?.prompt?.match(/\d+/);
-          const amount = amountMatch ? parseInt(amountMatch[0]) : 0;
-          
-          // 3. إنشاء مستند جديد في مجموعة invoices
+          // 3. إنشاء مستند جديد في مجموعة invoices وربطه بالعميل
           await addDoc(collection(db, 'invoices'), {
-            description: actionData.context?.prompt || actionData.aiReasoning || 'فاتورة جديدة',
+            description: description,
             amount: amount,
             status: 'unpaid',
             createdAt: serverTimestamp(),
-            sourceAiActionId: id
+            sourceAiActionId: id,
+            clientId: actionData.clientId || null,
+            clientName: actionData.clientName || null
           });
+        }
+
+        // 4. البطاقات الافتراضية للمدفوعات الخارجية
+        if (actionData.requires_payment) {
+          await generateVirtualCard(amount || 100, description);
         }
       }
       
-      // 4. تحديث حالة المهمة
+      // 5. تحديث حالة المهمة
       const result = await approveAction(id);
       if (!result.success) throw new Error(result.message);
       

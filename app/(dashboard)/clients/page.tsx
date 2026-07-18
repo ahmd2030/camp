@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Users, Loader2, Plus, X, CheckCircle, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Client {
   id: string;
@@ -71,7 +73,9 @@ export default function ClientsPage() {
       });
       setIsModalOpen(false);
       setNewClient({ name: '', email: '', phone: '', status: 'active' });
+      toast.success('تمت إضافة العميل بنجاح!');
     } catch (error) {
+      toast.error('حدث خطأ أثناء إضافة العميل');
       console.error("Error adding client:", error);
     } finally {
       setIsSubmitting(false);
@@ -87,7 +91,12 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-in-out">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -126,7 +135,11 @@ export default function ClientsPage() {
               <tbody className="divide-y divide-gray-100">
                 {clients.map((client) => (
                   <tr key={client.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-4 text-sm font-medium text-gray-900">{client.name}</td>
+                    <td className="p-4 text-sm font-medium text-primary">
+                      <a href={`/clients/${client.id}`} className="hover:underline">
+                        {client.name}
+                      </a>
+                    </td>
                     <td className="p-4 text-sm text-gray-700">{client.email || '-'}</td>
                     <td className="p-4 text-sm text-gray-700">{client.phone || '-'}</td>
                     <td className="p-4 text-sm text-gray-500">
@@ -233,6 +246,6 @@ export default function ClientsPage() {
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

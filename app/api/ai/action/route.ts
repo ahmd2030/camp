@@ -1,36 +1,93 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createAiAction } from '@/services/aiActionService'; 
+
+async function openRouterCall(model: string, systemPrompt: string, userPrompt: string, apiKey: string) {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      response_format: { type: "json_object" }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter API Error: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const prompt = body.prompt || body.context || 'حلل هذا الطلب';
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const clientId = body.clientId;
+    const clientName = body.clientName;
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
 
-    if (!apiKey) {
-      return NextResponse.json({ error: 'API Key is missing' }, { status: 500 });
+    if (!openRouterKey) {
+      return NextResponse.json({ error: 'OPENROUTER_API_KEY is missing' }, { status: 500 });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    // استخدام النموذج المتوفر والمؤكد في القائمة
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
-
-    const systemPrompt = `
-      أنت وكيل ذكاء اصطناعي إداري. قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل:
-      {
-        "type": "string",
-        "isSensitive": boolean (يجب أن تكون true للعمليات المالية والفواتير والمهام الهامة),
-        "aiReasoning": "string",
-        "costEstimate": number (تكلفة معالجة الذكاء الاصطناعي بالدولار، مثلا 0.1، وليس المبلغ المالي المذكور في الطلب)
-      }
-      الطلب: ${prompt}
+    // الخطوة الأولى: الموزع (Orchestrator) لتحديد نوع المهمة
+    const orchestratorPrompt = `
+      أنت الموزع الذكي (Orchestrator). قم بتحليل الطلب التالي وحدد فئته الرئيسية.
+      يجب أن يكون الرد بصيغة JSON يحتوي على مفتاح "category" وقيمته إما:
+      "financial": إذا كان الطلب يتعلق بالفواتير، الأموال، الدفع، الحسابات، أو التحليل المالي.
+      "marketing": إذا كان الطلب يتعلق بكتابة المحتوى، التسويق، الإعلانات، أو النشر.
+      "general": لأي مهام إدارية أخرى.
+      أمثلة: 
+      - أنشئ فاتورة -> {"category": "financial"}
+      - اكتب تغريدة للتسويق -> {"category": "marketing"}
     `;
 
-    const result = await model.generateContent(systemPrompt);
-    const responseText = result.response.text();
+    // استخدام نموذج سريع ورخيص للتصنيف
+    const categoryResultStr = await openRouterCall("google/gemini-1.5-flash", orchestratorPrompt, prompt, openRouterKey);
+    let category = "general";
+    try {
+      const parsedCat = JSON.parse(categoryResultStr.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim());
+      if (parsedCat.category) category = parsedCat.category.toLowerCase();
+    } catch (e) {
+      console.warn("Could not parse category JSON, defaulting to general");
+    }
+
+    // الخطوة الثانية: توجيه المهمة للنموذج المتخصص
+    let targetModel = "google/gemini-1.5-pro"; // default
+    if (category.includes("financial")) {
+      targetModel = "openai/gpt-4o";
+    } else if (category.includes("marketing")) {
+      targetModel = "anthropic/claude-3.5-sonnet";
+    }
+
+    console.log(`[Orchestrator] Request categorized as: ${category}. Routing to: ${targetModel}`);
+
+    const specializedSystemPrompt = `
+      أنت وكيل ذكاء اصطناعي متخصص (${category}). قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل الدقيق:
+      {
+        "type": "string",
+        "isSensitive": boolean,
+        "aiReasoning": "string",
+        "costEstimate": number,
+        "requires_payment": boolean
+      }
+      isSensitive: true للعمليات المالية والفواتير والمهام الهامة.
+      costEstimate: تكلفة معالجة الذكاء الاصطناعي بالدولار (مثلا 0.1).
+      requires_payment: true إذا كانت المهمة تتطلب دفع مبلغ مالي لجهة خارجية (مثل مورد أو إعلان).
+    `;
+
+    const resultText = await openRouterCall(targetModel, specializedSystemPrompt, prompt, openRouterKey);
     
-    const cleanedJson = responseText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    const cleanedJson = resultText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     const aiDecision = JSON.parse(cleanedJson);
 
     // حفظ المهمة في قاعدة البيانات
@@ -39,7 +96,10 @@ export async function POST(request: Request) {
       isSensitive: aiDecision.isSensitive,
       aiReasoning: aiDecision.aiReasoning,
       costEstimate: aiDecision.costEstimate || 0.1,
-      context: body
+      requires_payment: aiDecision.requires_payment || false,
+      clientId: clientId || null,
+      clientName: clientName || null,
+      context: { ...body, routedModel: targetModel, category }
     });
 
     if (!actionResult.success) {

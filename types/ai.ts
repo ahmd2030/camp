@@ -6,6 +6,9 @@ export interface AiAction {
   context: Record<string, any>;
   aiReasoning: string;
   costEstimate: number;
+  requires_payment?: boolean;
+  clientId?: string | null;
+  clientName?: string | null;
   createdAt?: any;
   executedAt?: any;
 }
