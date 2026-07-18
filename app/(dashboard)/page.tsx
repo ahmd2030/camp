@@ -31,12 +31,10 @@ export default function Home() {
     async function loadDashboardData() {
       setLoading(true);
       try {
-        const [clientsData, usersData] = await Promise.all([
-          getClients(),
+        const [usersData] = await Promise.all([
           getUsers()
         ]);
 
-        setClientsCount(clientsData.length);
         setUsersCount(usersData.length);
       } catch (error) {
         console.error("Error loading dashboard data:", error);
@@ -84,9 +82,17 @@ export default function Home() {
       console.error("Error listening to invoices:", error);
     });
 
+    // استماع لحظي للعملاء لحساب العدد
+    const unsubscribeClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
+      setClientsCount(snapshot.size);
+    }, (error) => {
+      console.error("Error listening to clients:", error);
+    });
+
     return () => {
       unsubscribe();
       unsubscribeInvoices();
+      unsubscribeClients();
     };
   }, []);
 
