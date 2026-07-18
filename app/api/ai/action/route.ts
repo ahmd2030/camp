@@ -14,6 +14,7 @@ async function openRouterCall(model: string, systemPrompt: string, userPrompt: s
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
+      max_tokens: 1000,
       response_format: { type: "json_object" }
     })
   });
