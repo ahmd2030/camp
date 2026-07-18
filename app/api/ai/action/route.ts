@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     `;
 
     // استخدام نموذج سريع ورخيص للتصنيف
-    const categoryResultStr = await openRouterCall("google/gemini-1.5-flash", orchestratorPrompt, prompt, openRouterKey);
+    const categoryResultStr = await openRouterCall("openai/gpt-4o-mini", orchestratorPrompt, prompt, openRouterKey);
     let category = "general";
     try {
       const parsedCat = JSON.parse(categoryResultStr.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim());
