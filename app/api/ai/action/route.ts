@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAiAction } from '@/services/aiActionService'; 
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
 async function openRouterCall(model: string, systemPrompt: string, userPrompt: string, apiKey: string) {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -40,6 +42,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OPENROUTER_API_KEY is missing' }, { status: 500 });
     }
 
+    // جلب الخدمات النشطة لحقنها في وعي الذكاء الاصطناعي
+    let servicesText = "لا توجد خدمات محددة حالياً.";
+    try {
+      const q = query(collection(db, 'services'), where('status', '==', 'active'));
+      const querySnapshot = await getDocs(q);
+      const activeServices: any[] = [];
+      querySnapshot.forEach((doc) => {
+        activeServices.push(doc.data());
+      });
+      if (activeServices.length > 0) {
+        servicesText = activeServices.map(s => `- ${s.name}: ${s.description || 'بدون وصف'} (السعر: ${s.price} ريال)`).join('\n');
+      }
+    } catch (e) {
+      console.warn("Failed to fetch services for AI context", e);
+    }
+
     // الخطوة الأولى: الموزع (Orchestrator) لتحديد نوع المهمة
     const orchestratorPrompt = `
       أنت الموزع الذكي (Orchestrator). قم بتحليل الطلب التالي وحدد فئته الرئيسية.
@@ -73,7 +91,11 @@ export async function POST(request: Request) {
     console.log(`[Orchestrator] Request categorized as: ${category}. Routing to: ${targetModel}`);
 
     const specializedSystemPrompt = `
-      أنت وكيل ذكاء اصطناعي متخصص (${category}). قم بتحليل الطلب التالي ورده بصيغة JSON فقط بهذا الهيكل الدقيق:
+      أنت موظف ذكاء اصطناعي في شركتنا (${category}). هذا هو الكتالوج الرسمي لخدماتنا وأسعارها:
+      [${servicesText}]
+      يجب عليك استخدام هذه الخدمات والأسعار الحقيقية فقط عند إنشاء خطط تسويقية أو فواتير للعملاء، ويُمنع منعاً باتاً اختراع أسعار من خيالك.
+
+      قم بتحليل الطلب ورده بصيغة JSON فقط بهذا الهيكل الدقيق:
       {
         "type": "string",
         "isSensitive": boolean,
@@ -82,6 +104,7 @@ export async function POST(request: Request) {
         "requires_payment": boolean
       }
       isSensitive: true للعمليات المالية والفواتير والمهام الهامة.
+      aiReasoning: شرح المهمة أو الخطوات.
       costEstimate: تكلفة معالجة الذكاء الاصطناعي بالدولار (مثلا 0.1).
       requires_payment: true إذا كانت المهمة تتطلب دفع مبلغ مالي لجهة خارجية (مثل مورد أو إعلان).
     `;

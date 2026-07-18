@@ -23,6 +23,7 @@ export default function Sidebar() {
   const navItems = [
     { name: 'لوحة القيادة', href: '/', icon: LayoutDashboard },
     { name: 'العملاء', href: '/clients', icon: Users },
+    { name: 'الخدمات', href: '/services', icon: Briefcase },
     { name: 'المهام', href: '/tasks', icon: Briefcase },
     { name: 'الفواتير', href: '/invoices', icon: FileText },
     { name: 'فريق العمل', href: '/users', icon: Users },
