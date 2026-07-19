@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     if (category.includes("financial")) {
       targetModel = "openai/gpt-4o";
     } else if (category.includes("marketing")) {
-      targetModel = "anthropic/claude-3.5-sonnet-20240620";
+      targetModel = "anthropic/claude-3.5-sonnet";
     }
 
     console.log(`[Orchestrator] Request categorized as: ${category}. Routing to: ${targetModel}`);
@@ -129,6 +129,10 @@ export async function POST(request: Request) {
 
     const resultText = await openRouterCall(targetModel, specializedSystemPrompt, prompt, openRouterKey);
     
+    if (!resultText) {
+      throw new Error("لم يتم استلام أي رد من النموذج (فارغ أو خطأ 404).");
+    }
+
     const cleanedJson = resultText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     const aiDecision = JSON.parse(cleanedJson);
 
