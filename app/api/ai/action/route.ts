@@ -48,12 +48,22 @@ async function evaluateAIOutput(text: string, apiKey: string) {
     قم بالرد فقط بصيغة JSON كالتالي:
     {"approved": true/false, "feedback": "سبب الرفض إن وجد أو رسالة نجاح"}
   `;
+  let resultText = '';
   try {
-    const result = await openRouterCall("google/gemini-1.5-pro", qaSystemPrompt, text, apiKey);
-    const parsed = JSON.parse(result.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim());
-    return parsed;
-  } catch (e) {
-    return { approved: false, feedback: "فشل مدير الجودة الآلي في تحليل النص." };
+    resultText = await openRouterCall("google/gemini-1.5-pro", qaSystemPrompt, text, apiKey);
+    // Strip out markdown formatting (like ```json ... ```) to safely parse the report
+    let cleanQA = resultText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    // Optional: Find the first '{' and last '}' just in case there is conversational text
+    const jsonStart = cleanQA.indexOf('{');
+    const jsonEnd = cleanQA.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+        cleanQA = cleanQA.substring(jsonStart, jsonEnd + 1);
+    }
+    const qaResult = JSON.parse(cleanQA);
+    return qaResult;
+  } catch (error) {
+    // Fallback: Return the raw AI text as the feedback so the user can read the report anyway
+    return { approved: false, feedback: `خطأ في التنسيق، التقرير الخام: ${resultText}` };
   }
 }
 
