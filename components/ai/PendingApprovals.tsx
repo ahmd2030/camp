@@ -104,9 +104,18 @@ export default function PendingApprovals() {
               </div>
             </div>
             
-            <p className="text-gray-600 text-sm mb-6 flex-grow leading-relaxed">
+            <p className="text-gray-600 text-sm mb-4 flex-grow leading-relaxed">
               {task.aiReasoning}
             </p>
+            
+            {task.qaWarning && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg p-3 mb-6 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <span>
+                  <strong>⚠️ تحذير جودة:</strong> {task.qaWarning}
+                </span>
+              </div>
+            )}
             
             <div className="flex gap-3 mt-auto">
               <button 

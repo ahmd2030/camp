@@ -9,6 +9,7 @@ export interface AiAction {
   requires_payment?: boolean;
   clientId?: string | null;
   clientName?: string | null;
+  qaWarning?: string;
   createdAt?: any;
   executedAt?: any;
 }

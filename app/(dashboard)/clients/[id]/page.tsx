@@ -144,6 +144,11 @@ export default function ClientProfilePage({ params }: PageProps) {
                   <div>
                     <p className="font-medium text-gray-900">{task.aiReasoning || task.type}</p>
                     <p className="text-xs text-gray-500 mt-1">توجيه إلى: {task.context?.routedModel || 'Default'}</p>
+                    {task.qaWarning && (
+                      <p className="text-xs text-red-600 mt-1 font-medium flex items-center gap-1">
+                        ⚠️ تحذير جودة: {task.qaWarning}
+                      </p>
+                    )}
                   </div>
                   {task.status === 'completed' || task.status === 'approved' ? (
                     <span className="flex items-center gap-1 text-green-600 text-sm font-medium bg-green-50 px-2 py-1 rounded">

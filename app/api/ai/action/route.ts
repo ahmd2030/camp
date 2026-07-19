@@ -30,6 +30,24 @@ async function openRouterCall(model: string, systemPrompt: string, userPrompt: s
   return data.choices[0].message.content;
 }
 
+async function evaluateAIOutput(text: string, apiKey: string) {
+  const qaSystemPrompt = `
+    أنت مدير جودة صارم (QA Manager) في وكالة رقمية. مهمتك مراجعة النص التالي. يجب عليك رفض النص إذا كان يحتوي على:
+    1) وعود مالية أو أرقام مبيعات مضمونة.
+    2) أسعار غير متوافقة مع الكتالوج.
+    3) هلوسة أو معلومات غير منطقية.
+    قم بالرد فقط بصيغة JSON كالتالي:
+    {"approved": true/false, "feedback": "سبب الرفض إن وجد أو رسالة نجاح"}
+  `;
+  try {
+    const result = await openRouterCall("google/gemini-1.5-pro", qaSystemPrompt, text, apiKey);
+    const parsed = JSON.parse(result.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim());
+    return parsed;
+  } catch (e) {
+    return { approved: false, feedback: "فشل مدير الجودة الآلي في تحليل النص." };
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -114,6 +132,13 @@ export async function POST(request: Request) {
     const cleanedJson = resultText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
     const aiDecision = JSON.parse(cleanedJson);
 
+    // تقييم مدير الجودة الآلي
+    const qaResult = await evaluateAIOutput(cleanedJson, openRouterKey);
+    let qaWarning = null;
+    if (qaResult && !qaResult.approved) {
+      qaWarning = qaResult.feedback || "مرفوض من مدير الجودة الآلي";
+    }
+
     // حفظ المهمة في قاعدة البيانات
     const actionResult = await createAiAction({
       type: aiDecision.type,
@@ -123,6 +148,7 @@ export async function POST(request: Request) {
       requires_payment: aiDecision.requires_payment || false,
       clientId: clientId || null,
       clientName: clientName || null,
+      qaWarning: qaWarning,
       context: { ...body, routedModel: targetModel, category }
     });
 
