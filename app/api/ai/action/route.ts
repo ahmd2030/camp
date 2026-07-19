@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
+
 import { createAiAction } from '@/services/aiActionService'; 
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 
 async function openRouterCall(model: string, systemPrompt: string, userPrompt: string, apiKey: string) {
-  // Sanitize model name and specifically remove any trailing dots
-  let sanitizedModel = model.replace(/[^a-zA-Z0-9\-\/\.]/g, '').trim();
-  sanitizedModel = sanitizedModel.replace(/\.$/, '');
-  if (sanitizedModel.includes('claude-3.5-sonnet')) {
-    sanitizedModel = 'anthropic/claude-3.5-sonnet';
+  // NUCLEAR OVERRIDE: Force the exact model string regardless of what the orchestrator returned
+  let finalModelToUse = model;
+  if (finalModelToUse && finalModelToUse.includes('claude')) {
+      finalModelToUse = 'anthropic/claude-3.5-sonnet';
   }
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -18,7 +20,7 @@ async function openRouterCall(model: string, systemPrompt: string, userPrompt: s
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: sanitizedModel,
+      model: finalModelToUse,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
