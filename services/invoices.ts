@@ -12,12 +12,17 @@ import {
 
 export interface InvoiceData {
   id?: string;
-  clientName: string;
+  clientId?: string;
+  clientName?: string;
+  taskId?: string;
   amount: number;
   description: string;
-  issueDate: string;
-  dueDate: string;
-  status: 'مدفوعة' | 'غير مدفوعة' | 'متأخرة';
+  status: 'PENDING' | 'PAID' | 'CANCELLED' | 'مدفوعة' | 'غير مدفوعة' | 'متأخرة';
+  paymentLink?: string;
+  issueDate?: string;
+  dueDate?: string;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 const invoicesCollection = collection(db, "invoices");
@@ -55,7 +60,7 @@ export const deleteInvoice = async (id: string) => {
   }
 };
 
-export const updateInvoiceStatus = async (id: string, status: 'مدفوعة' | 'غير مدفوعة' | 'متأخرة') => {
+export const updateInvoiceStatus = async (id: string, status: 'PENDING' | 'PAID' | 'CANCELLED' | 'مدفوعة' | 'غير مدفوعة' | 'متأخرة') => {
   try {
     const invoiceDoc = doc(db, "invoices", id);
     await updateDoc(invoiceDoc, { status });

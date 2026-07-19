@@ -4,14 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { FileText, Loader2, CheckCircle, Clock, Check } from 'lucide-react';
+import { FileText, Loader2, CheckCircle, Clock, Check, Link2, Copy, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Invoice {
   id: string;
+  clientId?: string;
+  clientName?: string;
   description: string;
   amount: number;
   status: string;
+  paymentLink?: string;
   createdAt: any;
 }
 
@@ -20,29 +23,30 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const handlePayment = async (id: string) => {
+  const handleCreatePaymentLink = async (id: string) => {
     if (!id) return;
     setProcessingId(id);
     try {
-      const response = await fetch(`/api/invoices/${id}`, {
-        method: 'PATCH',
-      });
-      if (!response.ok) {
-        toast.error('فشل في تحصيل الفاتورة');
-        console.error('Failed to mark invoice as paid');
-      } else {
-        toast.success('تم تحصيل الفاتورة بنجاح!');
-      }
+      // محاكاة إنشاء رابط دفع، سيتم استبدالها بربط حقيقي في المرحلة القادمة
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      toast.success('تم إنشاء رابط الدفع بنجاح (محاكاة)!');
     } catch (error) {
       toast.error('حدث خطأ أثناء الاتصال بالخادم');
-      console.error('Error updating invoice:', error);
     } finally {
       setProcessingId(null);
     }
   };
 
+  const handleCopyLink = (link?: string) => {
+    if (!link) {
+      toast.info('رابط الدفع غير متوفر بعد');
+      return;
+    }
+    navigator.clipboard.writeText(link);
+    toast.success('تم نسخ رابط الدفع');
+  };
+
   useEffect(() => {
-    // جلب الفواتير مع ترتيبها (أحدث الفواتير أولاً إن أمكن)
     const q = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -53,7 +57,6 @@ export default function InvoicesPage() {
       setInvoices(data);
       setLoading(false);
     }, (error) => {
-      // Fallback if index is missing (e.g., orderBy requires index)
       console.warn("Index missing, falling back to simple query", error);
       const simpleQ = collection(db, 'invoices');
       onSnapshot(simpleQ, (snap) => {
@@ -61,7 +64,6 @@ export default function InvoicesPage() {
         snap.forEach((doc) => {
           data.push({ id: doc.id, ...doc.data() } as Invoice);
         });
-        // Sort manually on client
         data.sort((a, b) => {
           const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
           const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
@@ -96,7 +98,7 @@ export default function InvoicesPage() {
             <FileText className="w-6 h-6 text-primary" />
             الفواتير
           </h1>
-          <p className="text-gray-500 mt-1">سجل فواتير العملاء المُدارة آلياً بواسطة الذكاء الاصطناعي.</p>
+          <p className="text-gray-500 mt-1">سجل فواتير العملاء وروابط الدفع.</p>
         </div>
       </div>
 
@@ -112,9 +114,10 @@ export default function InvoicesPage() {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100 text-gray-600 font-medium">
                   <th className="p-4 text-right">رقم الفاتورة</th>
-                  <th className="p-4 text-right">الوصف</th>
+                  <th className="p-4 text-right">العميل</th>
+                  <th className="p-4 text-right">الخدمة/الوصف</th>
                   <th className="p-4 text-right">المبلغ</th>
-                  <th className="p-4 text-right">تاريخ الإنشاء</th>
+                  <th className="p-4 text-right">التاريخ</th>
                   <th className="p-4 text-right">الحالة</th>
                   <th className="p-4 text-right">الإجراءات</th>
                 </tr>
@@ -123,44 +126,51 @@ export default function InvoicesPage() {
                 {invoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
                     <td className="p-4 text-sm font-medium text-gray-900">#{inv.id.slice(0, 6)}</td>
+                    <td className="p-4 text-sm text-gray-700">{inv.clientName || inv.clientId || 'غير محدد'}</td>
                     <td className="p-4 text-sm text-gray-700">{inv.description}</td>
                     <td className="p-4 text-sm font-bold text-gray-900">{inv.amount} ريال</td>
                     <td className="p-4 text-sm text-gray-500">
                       {inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString('ar-EG') : 'غير متوفر'}
                     </td>
                     <td className="p-4">
-                      {inv.status === 'paid' ? (
+                      {inv.status === 'PAID' || inv.status === 'paid' || inv.status === 'مدفوعة' ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
                           <CheckCircle className="w-3.5 h-3.5" />
                           مدفوعة
                         </span>
+                      ) : inv.status === 'CANCELLED' ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-100">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          ملغية
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-100">
                           <Clock className="w-3.5 h-3.5" />
-                          غير مدفوعة
+                          {inv.status === 'PENDING' ? 'قيد الانتظار' : 'غير مدفوعة'}
                         </span>
                       )}
                     </td>
-                    <td className="p-4">
-                      {inv.status === 'paid' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-400">
-                          <Check className="w-4 h-4" />
-                          تم التحصيل
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handlePayment(inv.id)}
-                          disabled={processingId === inv.id}
-                          className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded-lg shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {processingId === inv.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Check className="w-4 h-4" />
-                          )}
-                          تسديد
-                        </button>
-                      )}
+                    <td className="p-4 flex items-center gap-2">
+                      <button
+                        onClick={() => handleCreatePaymentLink(inv.id)}
+                        disabled={processingId === inv.id || inv.status === 'PAID' || inv.status === 'paid' || inv.status === 'مدفوعة'}
+                        className="px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        title="إنشاء رابط دفع"
+                      >
+                        {processingId === inv.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Link2 className="w-3.5 h-3.5" />
+                        )}
+                        إنشاء الرابط
+                      </button>
+                      <button
+                        onClick={() => handleCopyLink(inv.paymentLink || 'https://dummy-payment-link.com/pay/' + inv.id)}
+                        className="p-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                        title="نسخ الرابط"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
