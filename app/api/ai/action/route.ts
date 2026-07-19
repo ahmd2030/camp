@@ -7,11 +7,10 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 
 async function openRouterCall(model: string, systemPrompt: string, userPrompt: string, apiKey: string) {
-  // FORCE OVERRIDE: Bypass the orchestrator's choice entirely to prevent 404 dot errors
-  let finalModel = "openai/gpt-4o";
-  // Preserve QA middleware and Orchestrator classification models
-  if (model === "google/gemini-1.5-pro" || model === "openai/gpt-4o-mini") {
-    finalModel = model;
+  // NUCLEAR OVERRIDE: Force the exact model string regardless of what the orchestrator returned
+  let finalModelToUse = model;
+  if (finalModelToUse && finalModelToUse.includes('claude')) {
+      finalModelToUse = 'openai/gpt-4o';
   }
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -21,7 +20,7 @@ async function openRouterCall(model: string, systemPrompt: string, userPrompt: s
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: finalModel,
+      model: finalModelToUse,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -89,9 +88,10 @@ export async function POST(request: Request) {
     // الخطوة الأولى: الموزع (Orchestrator) لتحديد نوع المهمة
     const orchestratorPrompt = `
       أنت الموزع الذكي (Orchestrator). قم بتحليل الطلب التالي وحدد فئته الرئيسية.
+      لجميع المهام (كتابة مقترحات، تسويق، محتوى، إلخ)، يجب عليك دائماً إرجاع اسم النموذج كالتالي حصراً: openai/gpt-4o. لا تستخدم أي نماذج أخرى ولا تضف أي نقاط أو مسافات في النهاية.
       يجب أن يكون الرد بصيغة JSON يحتوي على مفتاح "category" وقيمته إما:
       "financial": إذا كان الطلب يتعلق بالفواتير، الأموال، الدفع، الحسابات، أو التحليل المالي.
-      "marketing": إذا كان الطلب يتعلق بكتابة المحتوى، التسويق، الإعلانات، أو النشر. يجب عليك استخدام نموذج openai/gpt-4o حصراً لتنفيذ مهام الكتابة أو التسويق، ولا تستخدم claude أبداً.
+      "marketing": إذا كان الطلب يتعلق بكتابة المحتوى، التسويق، الإعلانات، أو النشر.
       "general": لأي مهام إدارية أخرى.
       أمثلة: 
       - أنشئ فاتورة -> {"category": "financial"}
