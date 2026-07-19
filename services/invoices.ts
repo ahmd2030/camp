@@ -19,6 +19,9 @@ export interface InvoiceData {
   description: string;
   status: 'PENDING' | 'PAID' | 'CANCELLED' | 'مدفوعة' | 'غير مدفوعة' | 'متأخرة';
   paymentLink?: string;
+  stripePaymentLink?: string;
+  paytabsPaymentLink?: string;
+  gatewayInvoiceId?: string;
   issueDate?: string;
   dueDate?: string;
   createdAt?: any;

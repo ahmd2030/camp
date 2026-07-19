@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { FileText, Loader2, CheckCircle, Clock, Check, Link2, Copy, AlertCircle } from 'lucide-react';
+import { FileText, Loader2, CheckCircle, Clock, Check, Link2, Copy, AlertCircle, Globe, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
+import { generatePaymentLinks } from '@/services/payments/paymentRouter';
 
 interface Invoice {
   id: string;
@@ -15,6 +16,8 @@ interface Invoice {
   amount: number;
   status: string;
   paymentLink?: string;
+  stripePaymentLink?: string;
+  paytabsPaymentLink?: string;
   createdAt: any;
 }
 
@@ -23,13 +26,16 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const handleCreatePaymentLink = async (id: string) => {
+  const handleGenerateLinks = async (id: string, amount: number) => {
     if (!id) return;
     setProcessingId(id);
     try {
-      // محاكاة إنشاء رابط دفع، سيتم استبدالها بربط حقيقي في المرحلة القادمة
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('تم إنشاء رابط الدفع بنجاح (محاكاة)!');
+      const result = await generatePaymentLinks(id, amount);
+      if (result.success) {
+        toast.success('تم إنشاء روابط الدفع بنجاح!');
+      } else {
+        toast.error('حدث خطأ أثناء توليد الروابط');
+      }
     } catch (error) {
       toast.error('حدث خطأ أثناء الاتصال بالخادم');
     } finally {
@@ -37,13 +43,13 @@ export default function InvoicesPage() {
     }
   };
 
-  const handleCopyLink = (link?: string) => {
+  const handleCopyLink = (link?: string, gatewayName?: string) => {
     if (!link) {
       toast.info('رابط الدفع غير متوفر بعد');
       return;
     }
     navigator.clipboard.writeText(link);
-    toast.success('تم نسخ رابط الدفع');
+    toast.success(`تم نسخ رابط ${gatewayName || 'الدفع'}`);
   };
 
   useEffect(() => {
@@ -98,7 +104,7 @@ export default function InvoicesPage() {
             <FileText className="w-6 h-6 text-primary" />
             الفواتير
           </h1>
-          <p className="text-gray-500 mt-1">سجل فواتير العملاء وروابط الدفع.</p>
+          <p className="text-gray-500 mt-1">الموزع المالي الهجين: إدارة وتوجيه المدفوعات محلياً وعالمياً.</p>
         </div>
       </div>
 
@@ -119,7 +125,7 @@ export default function InvoicesPage() {
                   <th className="p-4 text-right">المبلغ</th>
                   <th className="p-4 text-right">التاريخ</th>
                   <th className="p-4 text-right">الحالة</th>
-                  <th className="p-4 text-right">الإجراءات</th>
+                  <th className="p-4 text-right w-64">الإجراءات والروابط</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -150,27 +156,60 @@ export default function InvoicesPage() {
                         </span>
                       )}
                     </td>
-                    <td className="p-4 flex items-center gap-2">
-                      <button
-                        onClick={() => handleCreatePaymentLink(inv.id)}
-                        disabled={processingId === inv.id || inv.status === 'PAID' || inv.status === 'paid' || inv.status === 'مدفوعة'}
-                        className="px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                        title="إنشاء رابط دفع"
-                      >
-                        {processingId === inv.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Link2 className="w-3.5 h-3.5" />
-                        )}
-                        إنشاء الرابط
-                      </button>
-                      <button
-                        onClick={() => handleCopyLink(inv.paymentLink || 'https://dummy-payment-link.com/pay/' + inv.id)}
-                        className="p-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                        title="نسخ الرابط"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
+                    <td className="p-4">
+                      {/* إذا لم تكن هناك روابط بعد، نظهر أزرار التوليد المزدوجة */}
+                      {!inv.stripePaymentLink && !inv.paytabsPaymentLink && inv.status !== 'PAID' && inv.status !== 'CANCELLED' ? (
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => handleGenerateLinks(inv.id, inv.amount)}
+                            disabled={processingId === inv.id}
+                            className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg shadow-sm hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                          >
+                            {processingId === inv.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
+                            توليد رابط عالمي (Stripe)
+                          </button>
+                          <button
+                            onClick={() => handleGenerateLinks(inv.id, inv.amount)}
+                            disabled={processingId === inv.id}
+                            className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                          >
+                            {processingId === inv.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CreditCard className="w-3.5 h-3.5" />}
+                            توليد رابط محلي (PayTabs/مدى)
+                          </button>
+                        </div>
+                      ) : (
+                        /* عرض الروابط بعد توليدها */
+                        <div className="flex flex-col gap-2">
+                          {inv.stripePaymentLink && (
+                            <div className="flex items-center justify-between bg-green-50 text-green-800 border border-green-200 rounded-md px-2 py-1.5 text-xs">
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <Globe className="w-3.5 h-3.5 text-green-600" /> Stripe
+                              </div>
+                              <button onClick={() => handleCopyLink(inv.stripePaymentLink, 'Stripe')} className="p-1 hover:bg-green-200 rounded transition-colors text-green-700" title="نسخ رابط Stripe">
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                          {inv.paytabsPaymentLink && (
+                            <div className="flex items-center justify-between bg-blue-50 text-blue-800 border border-blue-200 rounded-md px-2 py-1.5 text-xs">
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <CreditCard className="w-3.5 h-3.5 text-blue-600" /> PayTabs
+                              </div>
+                              <button onClick={() => handleCopyLink(inv.paytabsPaymentLink, 'PayTabs')} className="p-1 hover:bg-blue-200 rounded transition-colors text-blue-700" title="نسخ رابط PayTabs">
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                          {inv.paymentLink && !inv.stripePaymentLink && !inv.paytabsPaymentLink && (
+                            <div className="flex items-center justify-between bg-gray-100 text-gray-800 border border-gray-200 rounded-md px-2 py-1.5 text-xs">
+                              <span className="font-medium">الرابط القديم</span>
+                              <button onClick={() => handleCopyLink(inv.paymentLink, 'الرابط القديم')} className="p-1 hover:bg-gray-200 rounded transition-colors" title="نسخ الرابط">
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
