@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     if (category.includes("financial")) {
       targetModel = "openai/gpt-4o";
     } else if (category.includes("marketing")) {
-      targetModel = "anthropic/claude-3.5-sonnet";
+      targetModel = "anthropic/claude-3.5-sonnet-20240620";
     }
 
     console.log(`[Orchestrator] Request categorized as: ${category}. Routing to: ${targetModel}`);
