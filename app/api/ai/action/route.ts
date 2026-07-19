@@ -7,10 +7,11 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 
 async function openRouterCall(model: string, systemPrompt: string, userPrompt: string, apiKey: string) {
-  // NUCLEAR OVERRIDE: Force the exact model string regardless of what the orchestrator returned
-  let finalModelToUse = model;
-  if (finalModelToUse && finalModelToUse.includes('claude')) {
-      finalModelToUse = 'anthropic/claude-3.5-sonnet';
+  // FORCE OVERRIDE: Bypass the orchestrator's choice entirely to prevent 404 dot errors
+  let finalModel = "openai/gpt-4o";
+  // Preserve QA middleware and Orchestrator classification models
+  if (model === "google/gemini-1.5-pro" || model === "openai/gpt-4o-mini") {
+    finalModel = model;
   }
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -20,7 +21,7 @@ async function openRouterCall(model: string, systemPrompt: string, userPrompt: s
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: finalModelToUse,
+      model: finalModel,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
       أنت الموزع الذكي (Orchestrator). قم بتحليل الطلب التالي وحدد فئته الرئيسية.
       يجب أن يكون الرد بصيغة JSON يحتوي على مفتاح "category" وقيمته إما:
       "financial": إذا كان الطلب يتعلق بالفواتير، الأموال، الدفع، الحسابات، أو التحليل المالي.
-      "marketing": إذا كان الطلب يتعلق بكتابة المحتوى، التسويق، الإعلانات، أو النشر.
+      "marketing": إذا كان الطلب يتعلق بكتابة المحتوى، التسويق، الإعلانات، أو النشر. يجب عليك استخدام نموذج openai/gpt-4o حصراً لتنفيذ مهام الكتابة أو التسويق، ولا تستخدم claude أبداً.
       "general": لأي مهام إدارية أخرى.
       أمثلة: 
       - أنشئ فاتورة -> {"category": "financial"}
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
     if (category.includes("financial")) {
       targetModel = "openai/gpt-4o";
     } else if (category.includes("marketing")) {
-      targetModel = "anthropic/claude-3.5-sonnet";
+      targetModel = "openai/gpt-4o";
     }
 
     console.log(`[Orchestrator] Request categorized as: ${category}. Routing to: ${targetModel}`);
