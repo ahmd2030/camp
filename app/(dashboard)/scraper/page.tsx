@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
-import { Target, Loader2, Star, MessageSquare, Copy, Check, Eye, CheckCircle2, TrendingUp, Filter, AlertCircle } from 'lucide-react';
+import { Target, Loader2, Star, MessageSquare, Copy, Check, Eye, CheckCircle2, TrendingUp, Filter, AlertCircle, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { processLead } from '@/app/actions/scraper';
+import { scrapeGooglePlaces } from '@/app/actions/scraper';
 
 interface Lead {
   id: string;
@@ -26,6 +26,7 @@ export default function ScraperPage() {
   const [loading, setLoading] = useState(true);
   const [isScraping, setIsScraping] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,24 +62,28 @@ export default function ScraperPage() {
     return () => unsubscribe();
   }, []);
 
-  const handleSimulateScraping = async () => {
-    setIsScraping(true);
-    // محاكاة سحب بيانات من خرائط جوجل
-    const mockLeads = [
-      { businessName: 'مؤسسة السباكة الحديثة', category: 'مقاولات وسباكة', phone: '0500000001', rating: 3.5, reviewsCount: 12, website: 'غير متوفر' },
-      { businessName: 'عيادة الابتسامة', category: 'عيادات طبية', phone: '0500000002', rating: 4.8, reviewsCount: 200, website: 'متوفر' },
-      { businessName: 'ملهى ومقهى الليل', category: 'club', phone: '0500000003', rating: 4.0, reviewsCount: 50, website: 'متوفر' }, // Should be filtered out
-      { businessName: 'ورشة العناية بالسيارات', category: 'صيانة سيارات', phone: '0500000004', rating: 4.1, reviewsCount: 8, website: 'غير متوفر' }
-    ];
+  const handleScrapeGooglePlaces = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) {
+      toast.error('الرجاء إدخال كلمة بحث أولاً');
+      return;
+    }
 
-    let addedCount = 0;
-    for (const lead of mockLeads) {
-      const result = await processLead(lead);
-      if (result.success) addedCount++;
+    setIsScraping(true);
+    
+    try {
+      const result = await scrapeGooglePlaces(searchQuery);
+      if (result.success) {
+        toast.success(`تم الانتهاء من الصيد! تمت إضافة ${result.count} أهداف بنجاح.`);
+      } else {
+        toast.error(result.error || 'حدث خطأ أثناء الصيد');
+      }
+    } catch (error) {
+      toast.error('فشل الاتصال بالخادم.');
     }
 
     setIsScraping(false);
-    toast.success(`تم الانتهاء من الصيد! تمت إضافة ${addedCount} أهداف بنجاح (تم استبعاد الأنشطة المحظورة).`);
+    setSearchQuery(""); // مسح الحقل بعد البحث
   };
 
   const handleOpenPitch = (lead: Lead) => {
@@ -121,22 +126,38 @@ export default function ScraperPage() {
       transition={{ duration: 0.5 }}
       className="space-y-6"
     >
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Target className="w-6 h-6 text-primary" />
             رادار الصيد (AI Scraper)
           </h1>
-          <p className="text-gray-500 mt-1">المنصة الذكية لاصطياد العملاء المحتملين وتوليد رسائل مخصصة لرفع المبيعات.</p>
+          <p className="text-gray-500 mt-1">ابحث في خرائط جوجل واصطد الأهداف المحتملة لبرامج الـ Affiliate.</p>
         </div>
-        <button
-          onClick={handleSimulateScraping}
-          disabled={isScraping}
-          className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary/90 flex items-center gap-2 disabled:opacity-50"
-        >
-          {isScraping ? <Loader2 className="w-5 h-5 animate-spin" /> : <Filter className="w-5 h-5" />}
-          تفعيل رادار الخرائط
-        </button>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <form onSubmit={handleScrapeGooglePlaces} className="flex gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث هنا... (مثال: Plumbers in Dallas، أو شركات تكييف في الدمام)"
+              className="w-full pl-4 pr-10 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-800"
+              disabled={isScraping}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isScraping || !searchQuery.trim()}
+            className="px-6 py-3 bg-primary text-white font-medium rounded-lg shadow hover:bg-primary/90 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
+          >
+            {isScraping ? <Loader2 className="w-5 h-5 animate-spin" /> : <Filter className="w-5 h-5" />}
+            تفعيل رادار الخرائط
+          </button>
+        </form>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
