@@ -90,7 +90,7 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            model: "google/gemini-1.5-flash",
+            model: "openai/gpt-4o-mini",
             messages: [{ role: "user", content: prompt }]
           })
         });

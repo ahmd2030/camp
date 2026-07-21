@@ -48,7 +48,8 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "google/gemini-1.5-flash",
+          model: "openai/gpt-4o-mini",
+          response_format: { type: "json_object" },
           messages: [{ role: "user", content: prompt + " \nأرجع النتيجة بصيغة JSON فقط تحتوي على مصفوفة niches. لا تضف أي نصوص أو شروحات أخرى." }]
         })
       });
