@@ -30,7 +30,7 @@ export default function NichesPage() {
         else toast.error(result.error || 'فشل في تعبئة الخزان بمجالات جديدة');
       }
     } catch (e: any) {
-      if (!isBackground) setError('فشل الاتصال بالخادم.');
+      if (!isBackground) setError(e.message || String(e) || 'فشل الاتصال بالخادم.');
     }
     if (!isBackground) setLoading(false);
   };

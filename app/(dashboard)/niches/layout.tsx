@@ -1,5 +1,4 @@
-export const runtime = 'edge';
-export const maxDuration = 60; // fallback
+// Edge runtime removed to avoid Firebase conflicts on Vercel
 
 export default function NichesLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

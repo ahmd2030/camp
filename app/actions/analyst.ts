@@ -20,17 +20,20 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 
     let activeNiches = activeResult.data || [];
     const deficit = 10 - activeNiches.length;
-
+    
     // 2. If we have 10, return them directly
     if (deficit <= 0) {
       return { success: true, niches: activeNiches.slice(0, 10) };
     }
 
+    // Micro-batch: Request a max of 3 niches to avoid Vercel timeout on free tier (10s limit)
+    const batchSize = Math.min(3, deficit);
+
     // 3. Otherwise, generate the deficit
     const currentMonth = new Date().toLocaleString('ar-EG', { month: 'long' });
     const prompt = `أنت محلل أعمال (Business Analyst) لشركة تقدم نظام CRM ذكي وفوترة. 
 نحن في شهر ${currentMonth}.
-لدينا حالياً ${activeNiches.length} مجالات نشطة. نريد اقتراح ${deficit} مجالات تجارية (Niches) جديدة في السعودية يكون الطلب عليها عالياً في هذا الوقت من السنة، والتي تعاني عادة من نقص في التنظيم الرقمي، لتكون أهدافاً لحملاتنا التسويقية بالعمولة.
+لدينا حالياً ${activeNiches.length} مجالات نشطة. نريد اقتراح ${batchSize} مجالات تجارية (Niches) جديدة في السعودية يكون الطلب عليها عالياً في هذا الوقت من السنة، والتي تعاني عادة من نقص في التنظيم الرقمي، لتكون أهدافاً لحملاتنا التسويقية بالعمولة.
 
 تأكد ألا تتكرر مع المجالات التالية إن وجدت: ${activeNiches.map(n => n.title).join('، ')}.
 
@@ -60,20 +63,16 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
       // 4. Save new niches to DB
       const dbResult = await addNiches(newNichesRaw as SuggestedNiche[]);
       if (dbResult.success) {
-        // Since addNiches doesn't return the IDs (fire-and-forget style for simplicity), 
-        // we can just re-fetch, but to save time, we can append them locally.
-        // But for consistency and since we need IDs to delete/approve later, let's re-fetch:
         const finalResult = await getActiveNiches();
         return { success: true, niches: finalResult.data?.slice(0, 10) || [] };
+      } else {
+        return { success: false, error: 'Failed to add niches to DB: ' + dbResult.error };
       }
     }
 
     return { success: true, niches: activeNiches };
   } catch (error: any) {
     console.error("Error analyzing niches:", error);
-    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
-      return { success: false, error: 'انتهت مهلة استجابة الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.' };
-    }
-    return { success: false, error: "فشل في تحليل وتعبئة المجالات. يرجى المحاولة لاحقاً." };
+    return { success: false, error: error.message || String(error) };
   }
 }
