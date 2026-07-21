@@ -3,21 +3,36 @@
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
+import { getActiveNiches, addNiches, SuggestedNiche } from "@/services/niches";
 
-export interface NicheSuggestion {
-  title: string;
-  searchQuery: string; // The query to send to Google Places API
-  justification: string;
-  expectedCommission: string;
-  painPoint: string;
-}
-
-export async function analyzeNiches(): Promise<{ success: boolean; niches?: NicheSuggestion[]; error?: string }> {
+export async function getAndFillNiches(): Promise<{ success: boolean; niches?: SuggestedNiche[]; error?: string }> {
   try {
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    if (!apiKey) {
+      return { success: false, error: 'مفتاح GOOGLE_GENERATIVE_AI_API_KEY مفقود في إعدادات Vercel. يرجى إضافته.' };
+    }
+
+    // 1. Fetch active niches
+    const activeResult = await getActiveNiches();
+    if (!activeResult.success) {
+      return { success: false, error: 'فشل في الاتصال بقاعدة البيانات لجلب المجالات الحالية.' };
+    }
+
+    let activeNiches = activeResult.data || [];
+    const deficit = 10 - activeNiches.length;
+
+    // 2. If we have 10, return them directly
+    if (deficit <= 0) {
+      return { success: true, niches: activeNiches.slice(0, 10) };
+    }
+
+    // 3. Otherwise, generate the deficit
     const currentMonth = new Date().toLocaleString('ar-EG', { month: 'long' });
     const prompt = `أنت محلل أعمال (Business Analyst) لشركة تقدم نظام CRM ذكي وفوترة. 
 نحن في شهر ${currentMonth}.
-اقترح 3 مجالات تجارية (Niches) في السعودية يكون الطلب عليها عالياً في هذا الوقت من السنة، والتي تعاني عادة من نقص في التنظيم الرقمي، لتكون أهدافاً لحملاتنا التسويقية بالعمولة.
+لدينا حالياً ${activeNiches.length} مجالات نشطة. نريد اقتراح ${deficit} مجالات تجارية (Niches) جديدة في السعودية يكون الطلب عليها عالياً في هذا الوقت من السنة، والتي تعاني عادة من نقص في التنظيم الرقمي، لتكون أهدافاً لحملاتنا التسويقية بالعمولة.
+
+تأكد ألا تتكرر مع المجالات التالية إن وجدت: ${activeNiches.map(n => n.title).join('، ')}.
 
 لكل مجال، حدد:
 1. title: اسم المجال (مثل: شركات التكييف، نقل العفش، عيادات الأسنان)
@@ -27,7 +42,7 @@ export async function analyzeNiches(): Promise<{ success: boolean; niches?: Nich
 5. painPoint: نقطة الألم الحالية للتاجر في هذا المجال (سطر واحد)`;
 
     const { object } = await generateObject({
-      model: google('gemini-1.5-pro'),
+      model: google('gemini-1.5-flash'), // flash is faster and sufficient
       schema: z.object({
         niches: z.array(z.object({
           title: z.string(),
@@ -40,9 +55,25 @@ export async function analyzeNiches(): Promise<{ success: boolean; niches?: Nich
       prompt: prompt,
     });
 
-    return { success: true, niches: object.niches };
+    const newNichesRaw = object.niches || [];
+    if (newNichesRaw.length > 0) {
+      // 4. Save new niches to DB
+      const dbResult = await addNiches(newNichesRaw as SuggestedNiche[]);
+      if (dbResult.success) {
+        // Since addNiches doesn't return the IDs (fire-and-forget style for simplicity), 
+        // we can just re-fetch, but to save time, we can append them locally.
+        // But for consistency and since we need IDs to delete/approve later, let's re-fetch:
+        const finalResult = await getActiveNiches();
+        return { success: true, niches: finalResult.data?.slice(0, 10) || [] };
+      }
+    }
+
+    return { success: true, niches: activeNiches };
   } catch (error: any) {
     console.error("Error analyzing niches:", error);
-    return { success: false, error: "فشل في تحليل المجالات. يرجى المحاولة مرة أخرى." };
+    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+      return { success: false, error: 'انتهت مهلة استجابة الذكاء الاصطناعي. يرجى المحاولة مرة أخرى.' };
+    }
+    return { success: false, error: "فشل في تحليل وتعبئة المجالات. يرجى المحاولة لاحقاً." };
   }
 }
