@@ -6,12 +6,14 @@ import {
   doc, 
   updateDoc,
   query,
-  orderBy
+  orderBy,
+  where
 } from "firebase/firestore";
 
 export interface LeadData {
   id?: string;
   businessName: string;
+  email?: string;
   phone: string;
   rating: number;
   reviewsCount: number;
@@ -38,6 +40,17 @@ export const getLeads = async (): Promise<LeadData[]> => {
     } catch(e) {
       return [];
     }
+  }
+};
+
+export const getReadyLeads = async (): Promise<LeadData[]> => {
+  try {
+    const q = query(leadsCollection, where('status', '==', 'READY_TO_SEND'));
+    const data = await getDocs(q);
+    return data.docs.map(doc => ({ ...doc.data(), id: doc.id } as LeadData));
+  } catch (error) {
+    console.error("Error fetching ready leads:", error);
+    return [];
   }
 };
 
