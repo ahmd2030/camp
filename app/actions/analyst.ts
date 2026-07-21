@@ -44,19 +44,39 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 4. expectedCommission: حجم العمولة المتوقع (مثل: "عالية جداً"، "متوسطة")
 5. painPoint: نقطة الألم الحالية للتاجر في هذا المجال (سطر واحد)`;
 
-    const { object } = await generateObject({
-      model: google('gemini-1.5-flash-latest'), // Use latest to avoid model not found error
-      schema: z.object({
-        niches: z.array(z.object({
-          title: z.string(),
-          searchQuery: z.string(),
-          justification: z.string(),
-          expectedCommission: z.string(),
-          painPoint: z.string(),
-        }))
-      }),
-      prompt: prompt,
-    });
+    let object;
+    try {
+      const res = await generateObject({
+        model: google('gemini-1.5-flash'),
+        schema: z.object({
+          niches: z.array(z.object({
+            title: z.string(),
+            searchQuery: z.string(),
+            justification: z.string(),
+            expectedCommission: z.string(),
+            painPoint: z.string(),
+          }))
+        }),
+        prompt: prompt,
+      });
+      object = res.object;
+    } catch (flashError: any) {
+      console.warn("Flash failed, trying Pro:", flashError.message);
+      const res = await generateObject({
+        model: google('gemini-1.5-pro'),
+        schema: z.object({
+          niches: z.array(z.object({
+            title: z.string(),
+            searchQuery: z.string(),
+            justification: z.string(),
+            expectedCommission: z.string(),
+            painPoint: z.string(),
+          }))
+        }),
+        prompt: prompt,
+      });
+      object = res.object;
+    }
 
     const newNichesRaw = object.niches || [];
     if (newNichesRaw.length > 0) {

@@ -87,11 +87,23 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 seconds per AI call
         
-        const { text } = await generateText({
-          model: google('gemini-1.5-flash-latest'),
-          prompt: prompt,
-          abortSignal: controller.signal
-        });
+        let text;
+        try {
+          const res = await generateText({
+            model: google('gemini-1.5-flash'),
+            prompt: prompt,
+            abortSignal: controller.signal
+          });
+          text = res.text;
+        } catch (flashError: any) {
+          console.warn("Flash failed, trying Pro:", flashError.message);
+          const res = await generateText({
+            model: google('gemini-1.5-pro'),
+            prompt: prompt,
+            abortSignal: controller.signal
+          });
+          text = res.text;
+        }
         clearTimeout(timeoutId);
         aiPitch = text;
       } catch (aiError: any) {
