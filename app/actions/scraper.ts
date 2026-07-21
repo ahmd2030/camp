@@ -82,22 +82,43 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
         const prompt = `أنت خبير تسويق (Affiliate Marketer). النشاط التجاري اسمه: ${lead.businessName}. المشكلة لديه: ${lead.painPoint}. اكتب رسالة واتساب قصيرة جداً (لا تتجاوز 4 أسطر) لاستهداف هذا النشاط وإقناعه باستخدام برنامجنا. اختم بـ: [LINK] تحدث بلهجة سعودية احترافية.`;
         
         let text;
-        const { GoogleGenerativeAI } = require("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
+        const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+        const flashUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         try {
-          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-          const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }]
+          const response = await fetch(flashUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+            })
           });
-          text = result.response.text();
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } catch (flashError: any) {
           console.warn("Flash failed, trying Pro:", flashError.message);
-          const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-          const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }]
+          const proUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+          const response = await fetch(proUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+            })
           });
-          text = result.response.text();
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         }
         aiPitch = text;
       } catch (aiError: any) {
