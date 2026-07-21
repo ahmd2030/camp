@@ -85,41 +85,21 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
         const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
         const flashUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-        try {
-          const response = await fetch(flashUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }]
-            })
-          });
+        const response = await fetch(flashUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        });
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
-          }
-
-          const data = await response.json();
-          text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        } catch (flashError: any) {
-          console.warn("Flash failed, trying Pro:", flashError.message);
-          const proUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
-          const response = await fetch(proUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }]
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
-          }
-
-          const data = await response.json();
-          text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || `Google API Error: ${response.status} ${response.statusText}`);
         }
+
+        const data = await response.json();
+        text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         aiPitch = text;
       } catch (aiError: any) {
         console.error(`AI Timeout/Error for ${lead.businessName}`, aiError.name);

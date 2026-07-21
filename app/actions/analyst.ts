@@ -41,8 +41,6 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 4. expectedCommission: حجم العمولة المتوقع (مثل: "عالية جداً"، "متوسطة")
 5. painPoint: نقطة الألم الحالية للتاجر في هذا المجال (سطر واحد)`;
 
-    let object;
-    try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
@@ -55,35 +53,12 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+        throw new Error(errorData.error?.message || `Google API Error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
       const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      object = JSON.parse(textResponse);
-      
-    } catch (flashError: any) {
-      console.warn("Flash failed, trying Pro:", flashError.message);
-      
-      const proUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
-      const response = await fetch(proUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt + " \nأرجع النتيجة بصيغة JSON تحتوي على مصفوفة niches." }] }],
-          generationConfig: { responseMimeType: "application/json" }
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      object = JSON.parse(textResponse);
-    }
+      const object = JSON.parse(textResponse);
 
     const newNichesRaw = object.niches || [];
     if (newNichesRaw.length > 0) {
