@@ -88,7 +88,7 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
         const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 seconds per AI call
         
         const { text } = await generateText({
-          model: google('gemini-1.5-flash'),
+          model: google('gemini-1.5-flash-latest'),
           prompt: prompt,
           abortSignal: controller.signal
         });

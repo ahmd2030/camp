@@ -45,7 +45,7 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 5. painPoint: نقطة الألم الحالية للتاجر في هذا المجال (سطر واحد)`;
 
     const { object } = await generateObject({
-      model: google('gemini-1.5-flash'), // flash is faster and sufficient
+      model: google('gemini-1.5-flash-latest'), // Use latest to avoid model not found error
       schema: z.object({
         niches: z.array(z.object({
           title: z.string(),
