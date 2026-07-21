@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
-import { Target, Loader2, Star, MessageSquare, Copy, Check, Eye, CheckCircle2, TrendingUp, Filter, AlertCircle, Search } from 'lucide-react';
+import { Target, Loader2, Star, MessageSquare, Copy, Check, Eye, CheckCircle2, TrendingUp, Filter, AlertCircle, Search, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { scrapeGooglePlaces } from '@/app/actions/scraper';
 
@@ -27,6 +27,7 @@ export default function ScraperPage() {
   const [isScraping, setIsScraping] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,6 +87,26 @@ export default function ScraperPage() {
     setSearchQuery(""); // مسح الحقل بعد البحث
   };
 
+  const handleLaunchCampaign = async () => {
+    setIsSending(true);
+    try {
+      const response = await fetch('/api/send');
+      const data = await response.json();
+      if (data.success) {
+        if (data.sent === 0 && data.failed === 0) {
+          toast.info(data.message || 'لا توجد أهداف جاهزة للإرسال حالياً.');
+        } else {
+          toast.success(`تم إطلاق الحملة! نجاح: ${data.sent}، فشل: ${data.failed}`);
+        }
+      } else {
+        toast.error(data.error || 'حدث خطأ أثناء الإرسال');
+      }
+    } catch (error) {
+      toast.error('فشل الاتصال بخادم الإرسال');
+    }
+    setIsSending(false);
+  };
+
   const handleOpenPitch = (lead: Lead) => {
     setSelectedLead(lead);
     setIsModalOpen(true);
@@ -134,6 +155,14 @@ export default function ScraperPage() {
           </h1>
           <p className="text-gray-500 mt-1">ابحث في خرائط جوجل واصطد الأهداف المحتملة لبرامج الـ Affiliate.</p>
         </div>
+        <button
+          onClick={handleLaunchCampaign}
+          disabled={isSending}
+          className="px-6 py-2.5 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+          إطلاق حملة الإيميلات 🚀
+        </button>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
