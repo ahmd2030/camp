@@ -1,8 +1,6 @@
 "use server";
 
 import { addLead, LeadData } from "@/services/leads";
-import { generateText } from "ai";
-import { google } from "@ai-sdk/google";
 
 const HALAL_BLACKLIST = [
   'bar', 'club', 'liquor', 'pub', 'adult', 'wine', 'tavern',
@@ -83,28 +81,24 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
       try {
         const prompt = `أنت خبير تسويق (Affiliate Marketer). النشاط التجاري اسمه: ${lead.businessName}. المشكلة لديه: ${lead.painPoint}. اكتب رسالة واتساب قصيرة جداً (لا تتجاوز 4 أسطر) لاستهداف هذا النشاط وإقناعه باستخدام برنامجنا. اختم بـ: [LINK] تحدث بلهجة سعودية احترافية.`;
         
-        // Timeout for AI SDK
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 seconds per AI call
-        
         let text;
+        const { GoogleGenerativeAI } = require("@google/generative-ai");
+        const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
+
         try {
-          const res = await generateText({
-            model: google('gemini-1.5-flash'),
-            prompt: prompt,
-            abortSignal: controller.signal
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }]
           });
-          text = res.text;
+          text = result.response.text();
         } catch (flashError: any) {
           console.warn("Flash failed, trying Pro:", flashError.message);
-          const res = await generateText({
-            model: google('gemini-1.5-pro'),
-            prompt: prompt,
-            abortSignal: controller.signal
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+          const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }]
           });
-          text = res.text;
+          text = result.response.text();
         }
-        clearTimeout(timeoutId);
         aiPitch = text;
       } catch (aiError: any) {
         console.error(`AI Timeout/Error for ${lead.businessName}`, aiError.name);

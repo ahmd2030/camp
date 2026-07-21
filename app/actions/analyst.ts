@@ -1,8 +1,5 @@
 "use server";
 
-import { generateObject } from "ai";
-import { google } from "@ai-sdk/google";
-import { z } from "zod";
 import { getActiveNiches, addNiches, SuggestedNiche } from "@/services/niches";
 
 export async function getAndFillNiches(): Promise<{ success: boolean; niches?: SuggestedNiche[]; error?: string }> {
@@ -44,38 +41,29 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 4. expectedCommission: حجم العمولة المتوقع (مثل: "عالية جداً"، "متوسطة")
 5. painPoint: نقطة الألم الحالية للتاجر في هذا المجال (سطر واحد)`;
 
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
+    
     let object;
     try {
-      const res = await generateObject({
-        model: google('gemini-1.5-flash'),
-        schema: z.object({
-          niches: z.array(z.object({
-            title: z.string(),
-            searchQuery: z.string(),
-            justification: z.string(),
-            expectedCommission: z.string(),
-            painPoint: z.string(),
-          }))
-        }),
-        prompt: prompt,
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        generationConfig: { responseMimeType: "application/json" }
       });
-      object = res.object;
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt + " \nأرجع النتيجة بصيغة JSON تحتوي على مصفوفة niches." }] }]
+      });
+      object = JSON.parse(result.response.text());
     } catch (flashError: any) {
       console.warn("Flash failed, trying Pro:", flashError.message);
-      const res = await generateObject({
-        model: google('gemini-1.5-pro'),
-        schema: z.object({
-          niches: z.array(z.object({
-            title: z.string(),
-            searchQuery: z.string(),
-            justification: z.string(),
-            expectedCommission: z.string(),
-            painPoint: z.string(),
-          }))
-        }),
-        prompt: prompt,
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-pro",
+        generationConfig: { responseMimeType: "application/json" }
       });
-      object = res.object;
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt + " \nأرجع النتيجة بصيغة JSON تحتوي على مصفوفة niches." }] }]
+      });
+      object = JSON.parse(result.response.text());
     }
 
     const newNichesRaw = object.niches || [];
