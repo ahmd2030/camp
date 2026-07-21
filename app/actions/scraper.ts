@@ -9,7 +9,7 @@ const HALAL_BLACKLIST = [
   'ملهى', 'بار', 'خمارة', 'مرقص', 'ديسكو', 'نادي ليلي', 'مشروبات روحية'
 ];
 
-export async function scrapeGooglePlaces(searchQuery: string) {
+export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PENDING' | 'READY_TO_SEND' = 'PENDING') {
   try {
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey || apiKey === 'YOUR_GOOGLE_PLACES_API_KEY_HERE') {
@@ -107,7 +107,7 @@ export async function scrapeGooglePlaces(searchQuery: string) {
         website: lead.website,
         painPoint: lead.painPoint,
         aiPitch,
-        status: 'PENDING'
+        status: defaultStatus
       };
 
       const result = await addLead(newLead);
@@ -121,3 +121,19 @@ export async function scrapeGooglePlaces(searchQuery: string) {
     return { success: false, error: 'حدث خطأ داخلي غير متوقع أثناء معالجة الطلب.' };
   }
 }
+
+export async function automateScraping(searchQuery: string) {
+  // Fire and forget (or fast await since we limit to 5 leads)
+  // We await it here so that Vercel doesn't kill it prematurely if this is called from client directly,
+  // but for the UI, we can just return success immediately and not wait for the client.
+  // Actually, NextJS server actions must return a promise if we want the client to finish. 
+  // We will let the client handle it async or just await it.
+  try {
+    const result = await scrapeGooglePlaces(searchQuery, 'READY_TO_SEND');
+    return result;
+  } catch (e) {
+    console.error("Failed automateScraping", e);
+    return { success: false, error: 'حدث خطأ في بدء العمل الآلي' };
+  }
+}
+

@@ -18,7 +18,7 @@ export interface LeadData {
   website: string;
   painPoint: string;
   aiPitch: string;
-  status: 'PENDING' | 'PITCH_SENT' | 'CLICKED' | 'CONVERTED';
+  status: 'PENDING' | 'READY_TO_SEND' | 'PITCH_SENT' | 'CLICKED' | 'CONVERTED';
   createdAt?: any;
 }
 
@@ -54,7 +54,7 @@ export const addLead = async (lead: LeadData) => {
   }
 };
 
-export const updateLeadStatus = async (id: string, status: 'PENDING' | 'PITCH_SENT' | 'CLICKED' | 'CONVERTED') => {
+export const updateLeadStatus = async (id: string, status: 'PENDING' | 'READY_TO_SEND' | 'PITCH_SENT' | 'CLICKED' | 'CONVERTED') => {
   try {
     const leadDoc = doc(db, "leads", id);
     await updateDoc(leadDoc, { status });
