@@ -82,24 +82,26 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
         const prompt = `أنت خبير تسويق (Affiliate Marketer). النشاط التجاري اسمه: ${lead.businessName}. المشكلة لديه: ${lead.painPoint}. اكتب رسالة واتساب قصيرة جداً (لا تتجاوز 4 أسطر) لاستهداف هذا النشاط وإقناعه باستخدام برنامجنا. اختم بـ: [LINK] تحدث بلهجة سعودية احترافية.`;
         
         let text;
-        const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-        const flashUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
 
-        const response = await fetch(flashUrl, {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
+            model: "google/gemini-1.5-flash",
+            messages: [{ role: "user", content: prompt }]
           })
         });
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error?.message || `Google API Error: ${response.status} ${response.statusText}`);
+          throw new Error(errorData.error?.message || `OpenRouter API Error: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
-        text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        text = data.choices?.[0]?.message?.content || '';
         aiPitch = text;
       } catch (aiError: any) {
         console.error(`AI Timeout/Error for ${lead.businessName}`, aiError.name);
