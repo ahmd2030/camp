@@ -83,7 +83,7 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
         
         let text;
         const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-        const flashUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const flashUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
 
         const response = await fetch(flashUrl, {
           method: 'POST',

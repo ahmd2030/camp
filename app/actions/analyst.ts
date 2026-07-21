@@ -41,13 +41,12 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 4. expectedCommission: حجم العمولة المتوقع (مثل: "عالية جداً"، "متوسطة")
 5. painPoint: نقطة الألم الحالية للتاجر في هذا المجال (سطر واحد)`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt + " \nأرجع النتيجة بصيغة JSON تحتوي على مصفوفة niches." }] }],
-          generationConfig: { responseMimeType: "application/json" }
+          contents: [{ parts: [{ text: prompt + " \nأرجع النتيجة بصيغة JSON فقط تحتوي على مصفوفة niches. لا تضف أي نصوص أو شروحات أخرى." }] }]
         })
       });
 
@@ -58,7 +57,8 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 
       const data = await response.json();
       const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      const object = JSON.parse(textResponse);
+      const cleanText = textResponse.replace(/```json/gi, '').replace(/```/gi, '').trim();
+      const object = JSON.parse(cleanText);
 
     const newNichesRaw = object.niches || [];
     if (newNichesRaw.length > 0) {
