@@ -13,92 +13,111 @@ export async function scrapeGooglePlaces(searchQuery: string) {
   try {
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey || apiKey === 'YOUR_GOOGLE_PLACES_API_KEY_HERE') {
-      return { success: false, error: 'مفتاح Google Places API غير صالح أو غير موجود.' };
+      return { success: false, error: 'مفتاح Google Places API غير صالح أو لم يتم إعداده في بيئة الإنتاج.' };
     }
 
+    // 1. Google Places Fetch with Timeout
     const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${apiKey}`;
-    const response = await fetch(url);
-    const data = await response.json();
+    let data;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 seconds timeout
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      data = await response.json();
+    } catch (fetchError: any) {
+      if (fetchError.name === 'AbortError') {
+        return { success: false, error: 'انتهت مهلة الاتصال بخوادم جوجل (Timeout). يرجى المحاولة مرة أخرى.' };
+      }
+      return { success: false, error: 'فشل الاتصال بخوادم جوجل. تأكد من إعدادات الشبكة.' };
+    }
 
-    if (data.status !== 'OK') {
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
       console.error('Google API Error:', data.status, data.error_message);
+      if (data.status === 'REQUEST_DENIED') {
+        return { success: false, error: 'رفضت جوجل الطلب (REQUEST_DENIED). تأكد من صلاحية مفتاح API وربط حساب الفوترة.' };
+      }
       return { success: false, error: `فشل جلب البيانات من خرائط جوجل: ${data.status}` };
     }
 
     const results = data.results || [];
-    let addedLeads = [];
-    let processedCount = 0;
+    if (results.length === 0) {
+      return { success: false, error: 'لم يتم العثور على أي نتائج مطابقة لبحثك في خرائط جوجل.' };
+    }
 
+    let processedCount = 0;
+    const leadsToProcess = [];
+
+    // Filter and prepare leads
     for (const place of results) {
-      if (processedCount >= 10) break; // أقصى حد 10 أهداف لتسريع الاستجابة
+      if (processedCount >= 5) break; // قللنا العدد إلى 5 لتجنب الـ Timeout في Vercel
 
       const businessName = place.name || 'بدون اسم';
       const category = (place.types || []).join(' ');
       
-      // 1. الفلتر الإسلامي الصارم (Halal Filter)
       const textToCheck = `${businessName} ${category}`.toLowerCase();
       const isProhibited = HALAL_BLACKLIST.some(word => textToCheck.includes(word.toLowerCase()));
       
-      if (isProhibited) {
-        console.log(`[Halal Filter] Rejected lead: ${businessName}`);
-        continue;
-      }
+      if (isProhibited) continue;
 
-      // 2. تحليل نقطة الألم (Pain Point Analysis)
       const rating = place.rating || 0;
       const reviewsCount = place.user_ratings_total || 0;
-      // Places Text Search doesn't return website by default, but we assume "غير متوفر" for simplicity without a Place Details call
       const website = "غير متوفر";
       
       let painPoint = "بحاجة إلى تحسين التواجد الرقمي";
-      if (reviewsCount < 20) {
-        painPoint = "عدد التقييمات قليل جداً، يفقد الثقة أمام المنافسين";
-      } else if (rating < 4.0) {
-        painPoint = "التقييم العام منخفض، مما يؤثر على جذب العملاء";
-      }
+      if (reviewsCount < 20) painPoint = "عدد التقييمات قليل جداً، يفقد الثقة أمام المنافسين";
+      else if (rating < 4.0) painPoint = "التقييم العام منخفض، مما يؤثر على جذب العملاء";
 
-      // 3. صياغة العرض باستخدام الذكاء الاصطناعي (AI Pitch Generation)
-      let aiPitch = `مرحباً، لاحظنا أن ${businessName} يعاني من: ${painPoint}. لدينا الحل الأمثل لزيادة مبيعاتك بنسبة 300%. جرب نظامنا هنا: [رابط الإحالة]`;
+      leadsToProcess.push({ businessName, rating, reviewsCount, website, painPoint });
+      processedCount++;
+    }
 
+    if (leadsToProcess.length === 0) {
+      return { success: false, error: 'جميع النتائج المسترجعة لم تتجاوز الفلتر الإسلامي وتم استبعادها.' };
+    }
+
+    // 2. Concurrent AI Generation with Fallback
+    const finalLeads = await Promise.all(leadsToProcess.map(async (lead) => {
+      let aiPitch = `مرحباً، لاحظنا أن ${lead.businessName} يعاني من: ${lead.painPoint}. لدينا الحل الأمثل لزيادة مبيعاتك. جرب نظامنا هنا: [رابط الإحالة]`;
+      
       try {
-        const prompt = `أنت خبير تسويق (Affiliate Marketer). النشاط التجاري اسمه: ${businessName} 
-        المشكلة لديه (Pain point): ${painPoint}.
-        اكتب رسالة واتساب قصيرة جداً (لا تتجاوز 4 أسطر) لاستهداف هذا النشاط وإقناعه باستخدام برنامج الإدارة/الفوترة الخاص بنا لحل المشكلة.
-        اختم الرسالة بعبارة تدعوه للتسجيل عبر الرابط التالي: [LINK]
-        تحدث بلهجة سعودية احترافية.`;
-
+        const prompt = `أنت خبير تسويق (Affiliate Marketer). النشاط التجاري اسمه: ${lead.businessName}. المشكلة لديه: ${lead.painPoint}. اكتب رسالة واتساب قصيرة جداً (لا تتجاوز 4 أسطر) لاستهداف هذا النشاط وإقناعه باستخدام برنامجنا. اختم بـ: [LINK] تحدث بلهجة سعودية احترافية.`;
+        
+        // Timeout for AI SDK
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 seconds per AI call
+        
         const { text } = await generateText({
           model: google('gemini-1.5-flash'),
           prompt: prompt,
+          abortSignal: controller.signal
         });
+        clearTimeout(timeoutId);
         aiPitch = text;
-      } catch (aiError) {
-        console.error("AI Generation failed, using fallback pitch", aiError);
+      } catch (aiError: any) {
+        console.error(`AI Timeout/Error for ${lead.businessName}`, aiError.name);
+        // We gracefully fallback to the hardcoded pitch if AI times out, so UI doesn't freeze
       }
 
-      // 4. حفظ الهدف في قاعدة البيانات (Save Lead)
       const newLead: LeadData = {
-        businessName: businessName,
-        phone: "يتطلب تفاصيل أكثر", // Text Search doesn't return formatted_phone_number
-        rating: rating,
-        reviewsCount: reviewsCount,
-        website: website,
-        painPoint,
+        businessName: lead.businessName,
+        phone: "يتطلب تفاصيل أكثر",
+        rating: lead.rating,
+        reviewsCount: lead.reviewsCount,
+        website: lead.website,
+        painPoint: lead.painPoint,
         aiPitch,
         status: 'PENDING'
       };
 
       const result = await addLead(newLead);
-      if (result.success) {
-        addedLeads.push({ ...newLead, id: result.id });
-        processedCount++;
-      }
-    }
+      return { ...newLead, id: result.success ? result.id : Date.now().toString() };
+    }));
 
-    return { success: true, count: addedLeads.length, leads: addedLeads };
+    return { success: true, count: finalLeads.length, leads: finalLeads };
 
   } catch (error: any) {
-    console.error("Error scraping Google Places:", error);
-    return { success: false, error: error.message };
+    console.error("Critical Error scraping Google Places:", error);
+    return { success: false, error: 'حدث خطأ داخلي غير متوقع أثناء معالجة الطلب.' };
   }
 }
