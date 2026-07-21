@@ -43,7 +43,7 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 
     let object;
     try {
-      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,7 +65,7 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
     } catch (flashError: any) {
       console.warn("Flash failed, trying Pro:", flashError.message);
       
-      const proUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+      const proUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
       const response = await fetch(proUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

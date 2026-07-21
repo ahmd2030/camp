@@ -83,7 +83,7 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
         
         let text;
         const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-        const flashUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const flashUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         try {
           const response = await fetch(flashUrl, {
@@ -103,7 +103,7 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
           text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } catch (flashError: any) {
           console.warn("Flash failed, trying Pro:", flashError.message);
-          const proUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+          const proUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
           const response = await fetch(proUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
