@@ -2,6 +2,8 @@ import React from "react";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 
+export const maxDuration = 60;
+
 export default function DashboardLayout({
   children,
 }: Readonly<{

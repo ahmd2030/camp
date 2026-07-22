@@ -1,7 +1,5 @@
 "use server";
 
-export const maxDuration = 60; // Set max duration to 60 seconds
-
 import { addLead, LeadData } from "@/services/leads";
 
 const HALAL_BLACKLIST = [
