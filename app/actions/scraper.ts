@@ -19,7 +19,7 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
     let data;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 seconds timeout
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 seconds timeout
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
       data = await response.json();
