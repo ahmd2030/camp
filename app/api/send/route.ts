@@ -4,6 +4,10 @@ import { Resend } from 'resend';
 
 export async function GET() {
   try {
+    if (!process.env.RESEND_API_KEY) {
+      return NextResponse.json({ success: false, error: 'RESEND_API_KEY غير متوفر. الرجاء إضافته في إعدادات البيئة.' }, { status: 500 });
+    }
+    
     const resend = new Resend(process.env.RESEND_API_KEY);
     const leads = await getReadyLeads();
     
