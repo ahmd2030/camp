@@ -9,13 +9,13 @@ const HALAL_BLACKLIST = [
 
 export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PENDING' | 'READY_TO_SEND' = 'PENDING') {
   try {
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-    if (!apiKey || apiKey === 'YOUR_GOOGLE_PLACES_API_KEY_HERE') {
-      return { success: false, error: 'مفتاح Google Places API غير صالح أو لم يتم إعداده في بيئة الإنتاج.' };
+    const apiKey = process.env.SERPAPI_API_KEY;
+    if (!apiKey) {
+      return { success: false, error: 'مفتاح SerpApi غير صالح أو لم يتم إعداده في بيئة الإنتاج.' };
     }
 
-    // 1. Google Places Fetch with Timeout
-    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${apiKey}`;
+    // 1. SerpApi Fetch with Timeout
+    const url = `https://serpapi.com/search.json?engine=google_local&q=${encodeURIComponent(searchQuery)}&api_key=${apiKey}`;
     let data;
     try {
       const controller = new AbortController();
@@ -25,20 +25,17 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
       data = await response.json();
     } catch (fetchError: any) {
       if (fetchError.name === 'AbortError') {
-        return { success: false, error: 'انتهت مهلة الاتصال بخوادم جوجل (Timeout). يرجى المحاولة مرة أخرى.' };
+        return { success: false, error: 'انتهت مهلة الاتصال بخوادم SerpApi (Timeout). يرجى المحاولة مرة أخرى.' };
       }
-      return { success: false, error: 'فشل الاتصال بخوادم جوجل. تأكد من إعدادات الشبكة.' };
+      return { success: false, error: 'فشل الاتصال بخوادم SerpApi. تأكد من إعدادات الشبكة.' };
     }
 
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      console.error('Google API Error:', data.status, data.error_message);
-      if (data.status === 'REQUEST_DENIED') {
-        return { success: false, error: 'رفضت جوجل الطلب (REQUEST_DENIED). تأكد من صلاحية مفتاح API وربط حساب الفوترة.' };
-      }
-      return { success: false, error: `فشل جلب البيانات من خرائط جوجل: ${data.status}` };
+    if (data.error) {
+      console.error('SerpApi Error:', data.error);
+      return { success: false, error: `فشل جلب البيانات من SerpApi: ${data.error}` };
     }
 
-    const results = data.results || [];
+    const results = data.local_results || [];
     if (results.length === 0) {
       return { success: false, error: 'لم يتم العثور على أي نتائج مطابقة لبحثك في خرائط جوجل.' };
     }
@@ -50,8 +47,8 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
     for (const place of results) {
       if (processedCount >= 5) break; // قللنا العدد إلى 5 لتجنب الـ Timeout في Vercel
 
-      const businessName = place.name || 'بدون اسم';
-      const category = (place.types || []).join(' ');
+      const businessName = place.title || 'بدون اسم';
+      const category = place.type || '';
       
       const textToCheck = `${businessName} ${category}`.toLowerCase();
       const isProhibited = HALAL_BLACKLIST.some(word => textToCheck.includes(word.toLowerCase()));
@@ -59,8 +56,8 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
       if (isProhibited) continue;
 
       const rating = place.rating || 0;
-      const reviewsCount = place.user_ratings_total || 0;
-      const website = "غير متوفر";
+      const reviewsCount = place.reviews || 0;
+      const website = place.website || "غير متوفر";
       
       let painPoint = "بحاجة إلى تحسين التواجد الرقمي";
       if (reviewsCount < 20) painPoint = "عدد التقييمات قليل جداً، يفقد الثقة أمام المنافسين";
