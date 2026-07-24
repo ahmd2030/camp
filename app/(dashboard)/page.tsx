@@ -93,7 +93,7 @@ export default function DashboardHome() {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-500 to-amber-400 p-10 mb-8 shadow-sm"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 p-10 mb-8 shadow-sm"
       >
         <div className="relative z-10">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">
