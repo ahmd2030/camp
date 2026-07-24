@@ -31,6 +31,7 @@ export default function ScraperPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [sentLeads, setSentLeads] = useState<Set<string>>(new Set());
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -142,6 +143,7 @@ export default function ScraperPage() {
       const result = await sendTestEmail(selectedLead.aiPitch);
       if (result.success) {
         toast.success('تم الإرسال التجريبي بنجاح عبر Mango AI 🚀');
+        setSentLeads(prev => new Set(prev).add(selectedLead.id));
       } else {
         toast.error(`فشل الإرسال: ${result.error}`);
       }
@@ -274,13 +276,20 @@ export default function ScraperPage() {
                       )}
                     </td>
                     <td className="p-5">
-                      <button 
-                        onClick={() => handleOpenPitch(lead)}
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
-                      >
-                        <Eye className="w-4 h-4" />
-                        عرض الرسالة 🤖
-                      </button>
+                      {sentLeads.has(lead.id) ? (
+                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-green-50 text-green-700 border border-green-200 shadow-sm">
+                          <CheckCircle2 className="w-4 h-4" />
+                          تم الإرسال 🟢
+                        </span>
+                      ) : (
+                        <button 
+                          onClick={() => handleOpenPitch(lead)}
+                          className="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+                        >
+                          <Eye className="w-4 h-4" />
+                          عرض الرسالة 🤖
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
