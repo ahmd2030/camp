@@ -49,14 +49,14 @@ export default function Sidebar() {
 
       {/* Sidebar Component */}
       <aside 
-        className={`fixed top-0 right-0 h-full w-64 bg-[var(--sidebar-bg)] text-[var(--sidebar-fg)] z-40 
-        transform transition-transform duration-300 ease-in-out flex flex-col
+        className={`fixed top-0 right-0 h-full w-64 bg-white text-slate-800 z-40 
+        transform transition-transform duration-300 ease-in-out flex flex-col shadow-lg border-l border-slate-200
         ${isOpen ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0`}
       >
         {/* Logo / Brand */}
-        <div className="h-16 flex items-center justify-center border-b border-gray-700">
-          <Briefcase className="w-8 h-8 text-primary ml-2" />
-          <span className="text-xl font-bold tracking-wider">نظام الإدارة</span>
+        <div className="h-16 flex items-center justify-center border-b border-slate-100">
+          <Briefcase className="w-8 h-8 text-orange-500 ml-2" />
+          <span className="text-xl font-bold tracking-wider text-slate-800">نظام الإدارة</span>
         </div>
 
         {/* Navigation Links */}
@@ -71,11 +71,11 @@ export default function Sidebar() {
                 onClick={() => setIsOpen(false)}
                 className={`flex items-center px-4 py-3 rounded-lg transition-colors duration-200 group
                   ${isActive 
-                    ? 'bg-primary text-white shadow-md' 
-                    : 'hover:bg-gray-700 text-gray-300 hover:text-white'
+                    ? 'bg-orange-50 text-orange-600' 
+                    : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
                   }`}
               >
-                <Icon className={`w-5 h-5 ml-3 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-white'}`} />
+                <Icon className={`w-5 h-5 ml-3 ${isActive ? 'text-orange-500' : 'text-slate-400 group-hover:text-orange-500'}`} />
                 <span className="font-medium">{item.name}</span>
               </Link>
             );
@@ -83,15 +83,15 @@ export default function Sidebar() {
         </nav>
 
         {/* User / Logout area at bottom */}
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-slate-100">
           <button 
             onClick={async () => {
               const { logout } = await import('@/services/auth');
               await logout();
             }}
-            className="flex items-center w-full px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
+            className="flex items-center w-full px-4 py-3 text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
           >
-            <LogOut className="w-5 h-5 ml-3 text-red-400" />
+            <LogOut className="w-5 h-5 ml-3 text-red-500" />
             <span className="font-medium">تسجيل الخروج</span>
           </button>
         </div>
