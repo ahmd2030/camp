@@ -11,11 +11,44 @@ export async function sendTestEmail(emailBody: string, toEmail: string = "test@e
     
     const resend = new Resend(resendApiKey);
 
+    const formattedBody = emailBody.replace(/\n/g, '<br />');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="ar" dir="rtl">
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { background-color: #f9f9f9; font-family: Arial, sans-serif; padding: 40px 20px; margin: 0; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
+          .header { padding: 30px; text-align: center; border-bottom: 1px solid #eee; }
+          .header h1 { margin: 0; font-size: 28px; color: #1f2937; }
+          .header h1 span { color: #f59e0b; }
+          .content { padding: 30px; font-size: 16px; line-height: 1.8; color: #374151; }
+          .footer { padding: 20px; text-align: center; font-size: 13px; color: #9ca3af; background-color: #fcfcfc; border-top: 1px solid #eee; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Mango <span>AI</span></h1>
+          </div>
+          <div class="content">
+            ${formattedBody}
+          </div>
+          <div class="footer">
+            &copy; 2024 Mango AI. جميع الحقوق محفوظة.
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
     const { data, error } = await resend.emails.send({
       from: 'Mango AI <onboarding@resend.dev>',
       to: ['ahmd.alyazidi2030@gmail.com'],
       subject: 'رسالة تسويقية ذكية من Mango AI 🚀',
-      text: emailBody,
+      html: htmlContent,
     });
 
     if (error) {
