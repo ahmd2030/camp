@@ -3,274 +3,205 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Users, 
-  Building2,
-  Briefcase, 
-  CheckCircle2,
-  ArrowUpRight,
+  Send,
+  Target,
+  Eye,
+  Handshake,
   Clock,
-  Loader2,
-  Banknote,
-  TrendingUp
+  Loader2
 } from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
-
-import { getUsers, UserData } from '@/services/users';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
-import PendingApprovals from '@/components/ai/PendingApprovals';
-import AiCommandInterface from '@/components/ai/AiCommandInterface';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 
-const dummyChartData = [
-  { name: 'يناير', income: 4000, expenses: 2400 },
-  { name: 'فبراير', income: 3000, expenses: 1398 },
-  { name: 'مارس', income: 2000, expenses: 9800 },
-  { name: 'أبريل', income: 2780, expenses: 3908 },
-  { name: 'مايو', income: 1890, expenses: 4800 },
-  { name: 'يونيو', income: 2390, expenses: 3800 },
-  { name: 'يوليو', income: 3490, expenses: 4300 },
-];
-
-export default function Home() {
+export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
-  const [clientsCount, setClientsCount] = useState(0);
-  const [usersCount, setUsersCount] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [tasksStats, setTasksStats] = useState({ total: 0, completed: 0, completionRate: 0, pending: 0 });
-  const [recentTasks, setRecentTasks] = useState<any[]>([]);
+  const [totalSent, setTotalSent] = useState(0);
+  const [retargetedCount, setRetargetedCount] = useState(0);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
-    async function loadDashboardData() {
-      setLoading(true);
-      try {
-        const [usersData] = await Promise.all([
-          getUsers()
-        ]);
-        setUsersCount(usersData.length);
-      } catch (error) {
-        console.error("Error loading dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadDashboardData();
-
-    // استماع لحظي للمهام الذكية من Firestore
-    const unsubscribe = onSnapshot(collection(db, 'ai_actions'), (snapshot) => {
-      let pending = 0;
-      let completed = 0;
+    // 1. Fetch total sent and recent activity from sent_leads
+    const q = query(collection(db, 'sent_leads'), orderBy('sentAt', 'desc'), limit(5));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const recent: any[] = [];
-      
       snapshot.forEach(doc => {
         const data = doc.data();
-        if (data.status === 'pending_approval') pending++;
-        else if (data.status === 'completed' || data.status === 'approved') completed++;
-        
-        recent.push({ id: doc.id, title: data.type?.replace(/_/g, ' ') || 'مهمة', status: data.status === 'pending_approval' ? 'معلقة' : 'مكتملة', ...data });
+        recent.push({ id: doc.id, ...data });
       });
-      
-      const total = pending + completed;
-      const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-      
-      setTasksStats({ total, completed, completionRate, pending });
-      setRecentTasks(recent.slice(-5).reverse());
+      setRecentActivity(recent);
+      setLoading(false);
     }, (error) => {
-      console.error("Error listening to ai_actions:", error);
+      console.warn("Error fetching recent activity", error);
+      setLoading(false);
     });
 
-    // استماع لحظي للفواتير لحساب إجمالي الأرباح
-    const unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), (snapshot) => {
-      let revenue = 0;
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        if (data.status === 'paid') {
-          revenue += Number(data.amount) || 0;
-        }
-      });
-      setTotalRevenue(revenue);
-    }, (error) => {
-      console.error("Error listening to invoices:", error);
-    });
-
-    // استماع لحظي للعملاء لحساب العدد
-    const unsubscribeClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
-      setClientsCount(snapshot.size);
-    }, (error) => {
-      console.error("Error listening to clients:", error);
+    // 2. Fetch total count (using a simple onSnapshot for now, or just a separate query)
+    const unsubscribeTotal = onSnapshot(collection(db, 'sent_leads'), (snapshot) => {
+      setTotalSent(snapshot.size);
+      // For retargeted count, we can just hardcode 0 for now as requested
+      setRetargetedCount(0);
     });
 
     return () => {
       unsubscribe();
-      unsubscribeInvoices();
-      unsubscribeClients();
+      unsubscribeTotal();
     };
   }, []);
 
-  const totalExpenses = tasksStats.total * 0.05;
-  const netProfit = totalRevenue - totalExpenses;
+  const timeAgo = (dateString: string) => {
+    if (!dateString) return 'غير معروف';
+    const date = new Date(dateString);
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " سنة";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " شهر";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " يوم";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " ساعة";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " دقيقة";
+    return Math.floor(seconds) + " ثانية";
+  };
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
       </div>
     );
   }
 
-  const stats = [
-    { 
-      title: 'إجمالي الأرباح', 
-      value: `${totalRevenue.toLocaleString()} ريال`, 
-      trend: 'أرباح محصلة', 
-      isUp: true, 
-      icon: Banknote,
-      color: 'bg-green-500'
-    },
-    { 
-      title: 'صافي الربح', 
-      value: `${netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ريال`, 
-      trend: 'الأرباح - المصروفات', 
-      isUp: netProfit >= 0, 
-      icon: TrendingUp,
-      color: netProfit >= 0 ? 'bg-emerald-500' : 'bg-red-500'
-    },
-    { 
-      title: 'إجمالي العملاء', 
-      value: clientsCount.toString(), 
-      trend: 'حالي ومحتمل', 
-      isUp: true, 
-      icon: Building2,
-      color: 'bg-indigo-500'
-    },
-    { 
-      title: 'المهام المعلقة', 
-      value: tasksStats.pending.toString(), 
-      trend: 'تتطلب الانتباه', 
-      isUp: false, 
-      icon: Clock,
-      color: 'bg-yellow-500'
-    },
-  ];
-
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-6"
-    >
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">مرحباً بك في لوحة القيادة</h1>
-          <p className="text-gray-500 mt-1">إليك ملخص حي ومباشر لأداء أعمالك مع نظام الوكلاء الذكي.</p>
+    <div className="min-h-screen bg-[#0a0a0a] text-white p-8 font-sans -m-8" dir="rtl">
+      {/* Hero Banner */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-600/20 to-red-600/20 border border-white/10 p-10 mb-8 backdrop-blur-md"
+      >
+        <div className="relative z-10">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+            أهلاً بك في مركز قيادة Mango AI
+          </h1>
+          <p className="text-xl text-gray-300">نظرة عامة على أداء حملاتك التسويقية</p>
         </div>
-      </div>
+        {/* Abstract shapes for glassmorphism */}
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
+      </motion.div>
 
-      <AiCommandInterface />
-      <PendingApprovals />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, idx) => {
-          const Icon = stat.icon;
-          return (
-            <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between hover:shadow-md transition-shadow group">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">{stat.title}</p>
-                  <h3 className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</h3>
-                </div>
-                <div className={`p-3 rounded-lg ${stat.color} bg-opacity-10 group-hover:scale-110 transition-transform`}>
-                  <Icon className={`w-6 h-6 ${stat.color.replace('bg-', 'text-')}`} />
-                </div>
-              </div>
-              <div className="mt-4 flex items-center text-sm">
-                <span className={`flex items-center font-medium text-gray-500`}>
-                  {stat.trend}
-                </span>
-              </div>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden group hover:bg-white/10 transition-colors"
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-gray-400 text-sm font-medium">إجمالي المراسلات</p>
+              <h3 className="text-3xl font-bold mt-1 text-white">{totalSent}</h3>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Main Content Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left Chart Area */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-2">
-          <h3 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4 mb-6">
-            مقارنة الإيرادات والمصروفات (تجريبي)
-          </h3>
-          
-          <div className="h-72 w-full mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dummyChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" />
-                <YAxis />
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <Tooltip />
-                <Area type="monotone" dataKey="income" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" name="الإيرادات" />
-                <Area type="monotone" dataKey="expenses" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" name="المصروفات" />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="p-3 bg-orange-500/20 rounded-xl">
+              <Send className="w-6 h-6 text-orange-500" />
+            </div>
           </div>
-        </div>
+          <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-orange-500 to-red-500 w-full transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+        </motion.div>
 
-        {/* Right List Area */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-h-[450px] overflow-y-auto">
-          <h3 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4 mb-4">
-            أحدث المهام
-          </h3>
-          
-          {recentTasks.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              لا توجد مهام حالياً
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden group hover:bg-white/10 transition-colors"
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-gray-400 text-sm font-medium">عمليات إعادة الاستهداف</p>
+              <h3 className="text-3xl font-bold mt-1 text-white">{retargetedCount}</h3>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {recentTasks.map((task) => (
-                <div key={task.id} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
-                  <div className="mt-0.5">
-                    {task.status === 'مكتملة' ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <Clock className="w-5 h-5 text-yellow-500" />
-                    )}
+            <div className="p-3 bg-red-500/20 rounded-xl">
+              <Target className="w-6 h-6 text-red-500" />
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-red-500 to-pink-500 w-full transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden flex flex-col justify-center items-center"
+        >
+          <div className="p-3 bg-blue-500/20 rounded-xl mb-3">
+            <Eye className="w-6 h-6 text-blue-500" />
+          </div>
+          <p className="text-gray-400 text-sm font-medium mb-1">معدل الفتح</p>
+          <span className="text-xs font-bold px-3 py-1 bg-white/10 rounded-full text-gray-300 border border-white/10">قريباً - Coming Soon</span>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md relative overflow-hidden flex flex-col justify-center items-center"
+        >
+          <div className="p-3 bg-purple-500/20 rounded-xl mb-3">
+            <Handshake className="w-6 h-6 text-purple-500" />
+          </div>
+          <p className="text-gray-400 text-sm font-medium mb-1">الاجتماعات المجدولة</p>
+          <span className="text-xs font-bold px-3 py-1 bg-white/10 rounded-full text-gray-300 border border-white/10">قريباً - Coming Soon</span>
+        </motion.div>
+      </div>
+
+      {/* Recent Activity */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-md"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <Clock className="w-6 h-6 text-orange-500" />
+          <h2 className="text-2xl font-bold">آخر النشاطات</h2>
+        </div>
+        
+        {recentActivity.length === 0 ? (
+          <div className="text-center py-10 text-gray-500">
+            لا توجد نشاطات مسجلة حتى الآن.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {recentActivity.map((activity, index) => (
+              <motion.div 
+                key={activity.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 * index }}
+                className="flex justify-between items-center p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold text-lg shadow-inner">
+                    {activity.id.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className={`text-sm font-medium ${task.status === 'مكتملة' ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                      {task.title}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                      <span className="font-medium text-primary">{task.clientName ? `عميل: ${task.clientName}` : 'مهمة عامة'}</span>
-                    </p>
+                    <h4 className="font-semibold text-gray-200">{activity.id}</h4>
+                    <p className="text-sm text-gray-400 mt-1">تم إرسال رسالة تسويقية ذكية ✉️</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </motion.div>
+                <div className="text-sm font-medium text-gray-400 bg-white/5 px-4 py-2 rounded-xl border border-white/10 shadow-sm">
+                  منذ {timeAgo(activity.sentAt)}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+    </div>
   );
 }
