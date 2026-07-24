@@ -20,6 +20,7 @@ interface Lead {
   aiPitch: string;
   status: string;
   createdAt: any;
+  email?: string;
 }
 
 export default function ScraperPage() {
