@@ -311,7 +311,7 @@ export default function ScraperPage() {
                   </svg>
                 </button>
               </div>
-              <div className="p-6 bg-gray-50">
+              <div className="p-6 bg-gray-50 max-h-[60vh] overflow-y-auto">
                 <div className="mb-4">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">نقطة الألم المستهدفة</span>
                   <p className="mt-1 text-sm font-medium text-red-600">{selectedLead.painPoint}</p>
