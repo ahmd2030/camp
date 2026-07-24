@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { Target, Loader2, Star, MessageSquare, Copy, Check, Eye, CheckCircle2, TrendingUp, Filter, AlertCircle, Search, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { scrapeGooglePlaces } from '@/app/actions/scraper';
@@ -64,6 +64,17 @@ export default function ScraperPage() {
       });
     });
 
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'sent_leads'), (snapshot) => {
+      const sentIds = new Set<string>();
+      snapshot.forEach((doc) => sentIds.add(doc.id));
+      setSentLeads(sentIds);
+    }, (error) => {
+      console.warn("Error fetching sent_leads", error);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -143,6 +154,11 @@ export default function ScraperPage() {
       const result = await sendTestEmail(selectedLead.aiPitch);
       if (result.success) {
         toast.success('تم الإرسال التجريبي بنجاح عبر Mango AI 🚀');
+        try {
+          await setDoc(doc(db, 'sent_leads', selectedLead.id), { sentAt: new Date() });
+        } catch (dbError) {
+          console.error("Failed to save to sent_leads collection", dbError);
+        }
         setSentLeads(prev => new Set(prev).add(selectedLead.id));
       } else {
         toast.error(`فشل الإرسال: ${result.error}`);
