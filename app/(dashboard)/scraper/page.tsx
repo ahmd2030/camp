@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { Target, Loader2, Star, MessageSquare, Copy, Check, Eye, CheckCircle2, TrendingUp, Filter, AlertCircle, Search, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { scrapeGooglePlaces } from '@/app/actions/scraper';
+import { scrapeGooglePlaces, generatePitch } from '@/app/actions/scraper';
 import { sendTestEmail } from '@/app/actions/sendEmail';
 
 interface Lead {
@@ -31,7 +31,7 @@ export default function ScraperPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isTestingEmail, setIsTestingEmail] = useState(false);
-  const [sentLeads, setSentLeads] = useState<Set<string>>(new Set());
+  const [sentLeads, setSentLeads] = useState<Map<string, { sentAt: string, lastMessage: string }>>(new Map());
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,9 +69,15 @@ export default function ScraperPage() {
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'sent_leads'), (snapshot) => {
-      const sentIds = new Set<string>();
-      snapshot.forEach((doc) => sentIds.add(doc.id));
-      setSentLeads(sentIds);
+      const sentMap = new Map<string, { sentAt: string, lastMessage: string }>();
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        sentMap.set(doc.id, {
+          sentAt: data.sentAt,
+          lastMessage: data.lastMessage
+        });
+      });
+      setSentLeads(sentMap);
     }, (error) => {
       console.warn("Error fetching sent_leads", error);
     });
@@ -154,12 +160,20 @@ export default function ScraperPage() {
       const result = await sendTestEmail(selectedLead.aiPitch);
       if (result.success) {
         toast.success('تم الإرسال التجريبي بنجاح عبر Mango AI 🚀');
+        const nowStr = new Date().toISOString();
         try {
-          await setDoc(doc(db, 'sent_leads', selectedLead.id), { sentAt: new Date() });
+          await setDoc(doc(db, 'sent_leads', selectedLead.id), { 
+            sentAt: nowStr,
+            lastMessage: selectedLead.aiPitch 
+          });
         } catch (dbError) {
           console.error("Failed to save to sent_leads collection", dbError);
         }
-        setSentLeads(prev => new Set(prev).add(selectedLead.id));
+        setSentLeads(prev => {
+          const newMap = new Map(prev);
+          newMap.set(selectedLead.id, { sentAt: nowStr, lastMessage: selectedLead.aiPitch });
+          return newMap;
+        });
       } else {
         toast.error(`فشل الإرسال: ${result.error}`);
       }
@@ -167,6 +181,21 @@ export default function ScraperPage() {
       toast.error('فشل الاتصال بالخادم للإرسال التجريبي');
     } finally {
       setIsTestingEmail(false);
+    }
+  };
+
+  const handleRetarget = async (lead: Lead, previousMessage: string) => {
+    toast.info('جاري صياغة رسالة استهداف جديدة...');
+    try {
+      const result = await generatePitch(lead, previousMessage);
+      if (result.success && result.aiPitch) {
+        setSelectedLead({ ...lead, aiPitch: result.aiPitch });
+        setIsModalOpen(true);
+      } else {
+        toast.error('فشل إنشاء رسالة الاستهداف');
+      }
+    } catch (error) {
+      toast.error('خطأ في الاتصال بالذكاء الاصطناعي');
     }
   };
 
@@ -292,20 +321,40 @@ export default function ScraperPage() {
                       )}
                     </td>
                     <td className="p-5">
-                      {sentLeads.has(lead.id) ? (
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-green-50 text-green-700 border border-green-200 shadow-sm">
-                          <CheckCircle2 className="w-4 h-4" />
-                          تم الإرسال 🟢
-                        </span>
-                      ) : (
-                        <button 
-                          onClick={() => handleOpenPitch(lead)}
-                          className="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
-                        >
-                          <Eye className="w-4 h-4" />
-                          عرض الرسالة 🤖
-                        </button>
-                      )}
+                      {(() => {
+                        const sentData = sentLeads.get(lead.id);
+                        if (sentData) {
+                          const sentDate = new Date(sentData.sentAt);
+                          const daysSinceSent = (new Date().getTime() - sentDate.getTime()) / (1000 * 3600 * 24);
+                          
+                          if (daysSinceSent < 30) {
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-orange-50 text-orange-700 border border-orange-200 shadow-sm">
+                                ⏳ تم الإرسال (هذا الشهر)
+                              </span>
+                            );
+                          } else {
+                            return (
+                              <button 
+                                onClick={() => handleRetarget(lead, sentData.lastMessage)}
+                                className="bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 text-white border border-orange-300 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+                              >
+                                🎯 إعادة استهداف
+                              </button>
+                            );
+                          }
+                        }
+
+                        return (
+                          <button 
+                            onClick={() => handleOpenPitch(lead)}
+                            className="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+                          >
+                            <Eye className="w-4 h-4" />
+                            عرض الرسالة 🤖
+                          </button>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

@@ -207,3 +207,97 @@ export async function automateScraping(searchQuery: string) {
   }
 }
 
+export async function generatePitch(lead: any, previousMessage?: string) {
+  try {
+        const prompt = `أنت موظف مبيعات B2B خبير تعمل في شركة (Mango AI) المتخصصة في الحلول الرقمية. مساحتك الإبداعية محصورة في صياغة محتوى الرسالة، ولكن الهيكل ثابت.
+
+بيانات العميل:
+- اسم الشركة: ${lead.businessName}
+- التقييم: ${lead.rating}
+
+القواعد الصارمة (System Constraints):
+1. يمنع منعاً باتاً استخدام الأقواس المربعة [ ] أو ترك أي متغيرات فارغة.
+2. تحدث دائماً بصيغة المتكلم نيابة عن شركة (Mango AI) (مثال: نحن في Mango AI...).
+3. لا تقم بإدراج أي روابط (Links) وهمية.
+4. المنع القطعي للألفاظ الآلية: ممنوع منعاً باتاً استخدام أي كلمات توحي بأنك نظام آلي (مثل: ذكي، آلي، خوارزميات، روبوت، نظام، ذكاء اصطناعي، بوت) عند الإشارة إلى فريقنا أو طريقة عملنا.
+5. التخفي البشري 100%: يجب أن تتقمص شخصية إنسان حقيقي، مدير مبيعات محترف وخبير في عالم B2B، يتحدث نيابة عن كيان مؤسسي.
+6. تجنب ديباجات الذكاء الاصطناعي: لا تبدأ الرسالة أبداً بعبارات مثل 'بصفتي...' أو 'لقد قمت بتحليل بياناتكم عبر نظامنا'. بدلاً من ذلك، تحدث كشخص بحث في السوق بنفسه أو لاحظ التقييم بشكل طبيعي.
+7. نبرة الصوت: لا تكن مفرطاً في الحماس لدرجة تبدو مصطنعة أو متملقة. استخدم نبرة هادئة، واثقة، ومبنية على الحقائق والمكاسب.
+8. يجب أن يكون المخرج النهائي مطابقاً تماماً لهذا الهيكل الحرفي، دون زيادة أو نقصان في التنسيق:
+
+الموضوع: (اكتب موضوعاً جذاباً مخصصاً لمجالهم هنا)
+
+السادة إدارة ${lead.businessName}،
+تحية طيبة،
+
+(اكتب هنا 3 فقرات قصيرة جداً: الأولى تحلل مشكلة رقمية في مجالهم بناءً على تقييمهم، الثانية تستفز الحاجة للتغيير، والثالثة تعرض كيف يمكن لشركة Mango AI حل المشكلة)
+
+نتطلع لفرصة التعاون معكم وتحقيق نجاحات جديدة.
+
+مع خالص التحيات،
+إدارة تطوير الأعمال
+Mango AI`;
+        
+        let draftMessage = '';
+        let finalMessage = '';
+
+        const response1 = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: 'POST',
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "openai/gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }]
+          })
+        });
+
+        if (!response1.ok) {
+          throw new Error(`OpenRouter API Error (Agent 1): ${response1.status}`);
+        }
+
+        const data1 = await response1.json();
+        draftMessage = data1.choices?.[0]?.message?.content || '';
+
+        let cmoSystemPrompt = `أنت مدير التسويق (CMO) في شركة Mango AI. لقد استلمت للتو مسودة إيميل مبيعات B2B من المندوب.
+مهمتك هي تحسين هذا النص ليكون أكثر إقناعاً:
+- أضف (Hook) استفزازي جذاب في البداية لجذب الانتباه.
+- اجعل لغة النص دافئة، بشرية، وتعتمد على علم النفس البيعي.
+- المنع القطعي للألفاظ الآلية: ممنوع منعاً باتاً استخدام أي كلمات توحي بأنك نظام آلي (مثل: ذكي، آلي، خوارزميات، روبوت، نظام، ذكاء اصطناعي، بوت).
+- التخفي البشري 100%: تقمص شخصية إنسان حقيقي تماماً. لا تبدأ بعبارات مثل "بصفتي...". نبرة الصوت هادئة، واثقة ومبنية على الحقائق والمكاسب، لا تكن مفرطاً في الحماس.
+قاعدة صارمة: حافظ على التوقيع النهائي لـ Mango AI كما هو في المسودة الأصلية تماماً ولا تستخدم أي متغيرات فارغة [ ].
+أعد النص المحسن كقطعة واحدة جاهزة.`;
+
+        if (previousMessage) {
+            cmoSystemPrompt += `\n\nتوجيه عاجل (إعادة استهداف): بما أننا نملك previousMessage للعميل، فهذا يعني أننا نعيد استهداف العميل بعد شهر من التجاهل. قاعدة صارمة: اقرأ الرسالة السابقة، وإياك أن تكرر نفس الهوك (Hook) أو الزاوية البيعية. استخدم مدخلاً نفسياً جديداً تماماً (مثل التركيز على ابتكار جديد، أو إحصائية مخيفة في السوق، أو عرض حصري) لكسر الجليد.`;
+        }
+
+        const response2 = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: 'POST',
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "openai/gpt-4o-mini",
+            messages: [
+              { role: "system", content: cmoSystemPrompt },
+              { role: "user", content: previousMessage ? `الرسالة السابقة التي تجاهلها العميل:\n${previousMessage}\n\nالمسودة الجديدة المراد تحسينها كإعادة استهداف:\n${draftMessage}` : draftMessage }
+            ]
+          })
+        });
+
+        if (!response2.ok) {
+          throw new Error(`OpenRouter API Error (Agent 2): ${response2.status}`);
+        }
+
+        const data2 = await response2.json();
+        finalMessage = data2.choices?.[0]?.message?.content || draftMessage;
+        
+        return { success: true, aiPitch: finalMessage };
+  } catch (error: any) {
+    console.error("Error generating pitch:", error);
+    return { success: false, error: 'حدث خطأ داخلي غير متوقع أثناء معالجة الطلب.' };
+  }
+}
