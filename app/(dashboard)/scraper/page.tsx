@@ -7,6 +7,7 @@ import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase
 import { Target, Loader2, Star, MessageSquare, Copy, Check, Eye, CheckCircle2, TrendingUp, Filter, AlertCircle, Search, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { scrapeGooglePlaces } from '@/app/actions/scraper';
+import { sendTestEmail } from '@/app/actions/sendEmail';
 
 interface Lead {
   id: string;
@@ -28,6 +29,7 @@ export default function ScraperPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -130,6 +132,23 @@ export default function ScraperPage() {
     }
     
     setIsModalOpen(false);
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!selectedLead || !selectedLead.aiPitch) return;
+    setIsTestingEmail(true);
+    try {
+      const result = await sendTestEmail(selectedLead.aiPitch);
+      if (result.success) {
+        toast.success('تم الإرسال التجريبي بنجاح عبر Mango AI 🚀');
+      } else {
+        toast.error(`فشل الإرسال: ${result.error}`);
+      }
+    } catch (error: any) {
+      toast.error('فشل الاتصال بالخادم للإرسال التجريبي');
+    } finally {
+      setIsTestingEmail(false);
+    }
   };
 
   if (loading) {
@@ -310,6 +329,14 @@ export default function ScraperPage() {
                   className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   إلغاء
+                </button>
+                <button
+                  onClick={handleSendTestEmail}
+                  disabled={isTestingEmail}
+                  className="px-4 py-2 bg-gradient-to-r from-gray-700 to-gray-900 text-white text-sm font-bold rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isTestingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  إرسال تجريبي عبر Mango AI 🚀
                 </button>
                 <button
                   onClick={() => handleCopyAndMarkSent(selectedLead)}
