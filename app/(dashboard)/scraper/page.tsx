@@ -298,21 +298,21 @@ export default function ScraperPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden"
+              className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
             >
-              <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0 bg-white z-10">
                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-primary" />
                   الرسالة المخصصة للهدف
                 </h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50">
                   <span className="sr-only">Close</span>
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-              <div className="p-6 bg-gray-50">
+              <div className="p-6 bg-gray-50 overflow-y-auto flex-1 max-h-[60vh]">
                 <div className="mb-4">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">نقطة الألم المستهدفة</span>
                   <p className="mt-1 text-sm font-medium text-red-600">{selectedLead.painPoint}</p>
@@ -324,7 +324,7 @@ export default function ScraperPage() {
                   </div>
                 </div>
               </div>
-              <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <div className="p-6 border-t border-gray-100 flex flex-wrap justify-end gap-3 shrink-0 bg-white z-10">
                 <button
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
