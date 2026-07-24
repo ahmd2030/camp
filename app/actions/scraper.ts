@@ -103,9 +103,11 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
 Mango AI
 الرائدة في الحلول الرقمية`;
         
-        let text;
+        let draftMessage = '';
+        let finalMessage = '';
 
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        // Request 1: Agent 1 (Sales Rep)
+        const response1 = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: 'POST',
           headers: {
             "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -117,14 +119,46 @@ Mango AI
           })
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || `OpenRouter API Error: ${response.status} ${response.statusText}`);
+        if (!response1.ok) {
+          const errorData = await response1.json();
+          throw new Error(errorData.error?.message || `OpenRouter API Error (Agent 1): ${response1.status} ${response1.statusText}`);
         }
 
-        const data = await response.json();
-        text = data.choices?.[0]?.message?.content || '';
-        aiPitch = text;
+        const data1 = await response1.json();
+        draftMessage = data1.choices?.[0]?.message?.content || '';
+
+        // Request 2: Agent 2 (CMO)
+        const cmoSystemPrompt = `أنت مدير التسويق (CMO) في شركة Mango AI. لقد استلمت للتو مسودة إيميل مبيعات B2B من المندوب.
+مهمتك هي تحسين هذا النص ليكون أكثر إقناعاً:
+- أضف (Hook) استفزازي جذاب في البداية لجذب الانتباه.
+- اجعل لغة النص دافئة، بشرية، وتعتمد على علم النفس البيعي.
+قاعدة صارمة: حافظ على التوقيع النهائي لـ Mango AI كما هو في المسودة الأصلية تماماً ولا تستخدم أي متغيرات فارغة [ ].
+أعد النص المحسن كقطعة واحدة جاهزة.`;
+
+        const response2 = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: 'POST',
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "openai/gpt-4o-mini",
+            messages: [
+              { role: "system", content: cmoSystemPrompt },
+              { role: "user", content: draftMessage }
+            ]
+          })
+        });
+
+        if (!response2.ok) {
+          const errorData2 = await response2.json();
+          throw new Error(errorData2.error?.message || `OpenRouter API Error (Agent 2): ${response2.status} ${response2.statusText}`);
+        }
+
+        const data2 = await response2.json();
+        finalMessage = data2.choices?.[0]?.message?.content || draftMessage;
+        
+        aiPitch = finalMessage;
       } catch (aiError: any) {
         console.error(`AI Timeout/Error for ${lead.businessName}`, aiError.name);
         // We gracefully fallback to the hardcoded pitch if AI times out, so UI doesn't freeze
