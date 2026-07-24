@@ -13,7 +13,7 @@ export async function sendTestEmail(emailBody: string, toEmail: string = "test@e
 
     const { data, error } = await resend.emails.send({
       from: 'Mango AI <onboarding@resend.dev>',
-      to: [toEmail],
+      to: ['ahmd.alyazidi2030@gmail.com'],
       subject: 'رسالة تسويقية ذكية من Mango AI 🚀',
       text: emailBody,
     });
