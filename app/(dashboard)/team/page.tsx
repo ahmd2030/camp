@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { chatWithTeamMember, delegateToTeamMember, ChatMessage } from '@/app/actions/team';
+import { chatWithTeamMember, delegateToTeamMember, continueChatWithSearch, ChatMessage } from '@/app/actions/team';
 import { toast, Toaster } from 'sonner';
 
 const TEAM_MEMBERS = [
@@ -23,6 +23,7 @@ export default function TeamPage() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [searchStatus, setSearchStatus] = useState('');
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -110,8 +111,14 @@ export default function TeamPage() {
     try {
       // Pass the previous history (excluding the one we just added) to the action
       // The action will save the user message to DB and return the AI response.
-      const result = await chatWithTeamMember(selectedMember, userText, chatHistory);
+      let result = await chatWithTeamMember(selectedMember, userText, chatHistory);
       
+      if (result.success && result.isSearching) {
+        setSearchStatus(`🔍 يبحث في الإنترنت عن: "${result.query}"...`);
+        result = await continueChatWithSearch(selectedMember, chatHistory, result.assistantMessage, result.query);
+        setSearchStatus('');
+      }
+
       if (result.success && result.response) {
         setChatHistory([...updatedHistory, { role: 'assistant', content: result.response }]);
       } else {
@@ -122,6 +129,7 @@ export default function TeamPage() {
     } catch (error) {
       toast.error('حدث خطأ في النظام.');
       setChatHistory(chatHistory);
+      setSearchStatus('');
     } finally {
       setIsLoading(false);
     }
@@ -277,14 +285,22 @@ export default function TeamPage() {
                 )}
                 
                 {isLoading && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-4 flex-row">
-                    <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-sm">
-                      <Bot className="w-5 h-5 text-slate-600" />
-                    </div>
-                    <div className="max-w-[80%] rounded-2xl p-4 bg-white text-slate-700 border border-slate-100 rounded-tr-sm shadow-sm flex items-center gap-2">
-                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
-                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-start"
+                  >
+                    <div className="bg-white border border-slate-100 rounded-2xl rounded-tr-none px-6 py-4 shadow-sm flex items-center gap-3">
+                      <div className="flex gap-1.5">
+                        <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      {searchStatus && (
+                        <span className="text-xs font-bold text-orange-500 animate-pulse bg-orange-50 px-2 py-1 rounded-md border border-orange-100">
+                          {searchStatus}
+                        </span>
+                      )}
                     </div>
                   </motion.div>
                 )}

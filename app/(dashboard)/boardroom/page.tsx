@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Presentation, Users, Briefcase, TrendingUp, ShieldCheck, ServerCog, Send, CheckCircle2, Loader2, Bot, ArrowRight, Forward, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getBoardMemberOpinion, saveBoardMeeting, delegateToTeamMember } from '@/app/actions/team';
+import { getBoardMemberOpinion, saveBoardMeeting, delegateToTeamMember, continueChatWithSearch } from '@/app/actions/team';
 import { toast, Toaster } from 'sonner';
 
 const BOARD_MEMBERS = [
@@ -20,8 +20,8 @@ export default function BoardroomPage() {
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set(BOARD_MEMBERS.map(m => m.id)));
   const [meetingState, setMeetingState] = useState<'IDLE' | 'RUNNING' | 'DONE'>('IDLE');
   
-  // Track status per member: 'WAITING' | 'THINKING' | 'DONE' | 'ERROR'
-  const [memberStatus, setMemberStatus] = useState<Record<string, { status: string, response?: string }>>({});
+  // Track status per member: 'WAITING' | 'THINKING' | 'SEARCHING' | 'DONE' | 'ERROR'
+  const [memberStatus, setMemberStatus] = useState<Record<string, { status: string, response?: string, query?: string }>>({});
 
   // Delegation State
   const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
@@ -65,7 +65,13 @@ export default function BoardroomPage() {
     // Parallel execution on client-side to avoid server timeout
     const promises = Array.from(selectedMembers).map(async (roleId) => {
       try {
-        const result = await getBoardMemberOpinion(roleId, topic);
+        let result = await getBoardMemberOpinion(roleId, topic);
+        
+        if (result.success && result.isSearching) {
+          setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'SEARCHING', query: result.query } }));
+          result = await continueChatWithSearch(roleId, [], result.assistantMessage, result.query, topic);
+        }
+
         if (result.success && result.response) {
           responses[roleId] = result.response;
           setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'DONE', response: result.response } }));
@@ -214,9 +220,9 @@ export default function BoardroomPage() {
                   className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative overflow-hidden"
                 >
                   {/* Progress / Status Bar */}
-                  {statusData.status === 'THINKING' && (
+                  {(statusData.status === 'THINKING' || statusData.status === 'SEARCHING') && (
                     <div className="absolute top-0 left-0 w-full h-1 bg-slate-100 overflow-hidden">
-                      <div className="h-full bg-orange-400 w-1/3 animate-[slide_1.5s_ease-in-out_infinite]" />
+                      <div className={`h-full w-1/3 animate-[slide_1.5s_ease-in-out_infinite] ${statusData.status === 'SEARCHING' ? 'bg-orange-500' : 'bg-orange-400'}`} />
                     </div>
                   )}
 
@@ -233,6 +239,11 @@ export default function BoardroomPage() {
                             يحلل المعطيات...
                           </span>
                         )}
+                        {statusData.status === 'SEARCHING' && (
+                          <span className="text-sm font-semibold text-orange-600 animate-pulse flex items-center gap-2 bg-orange-50 px-3 py-1 rounded-lg border border-orange-100">
+                            🔍 يبحث في الإنترنت عن: "{statusData.query}"...
+                          </span>
+                        )}
                         {statusData.status === 'DONE' && (
                           <span className="text-sm font-bold text-green-500 bg-green-50 px-3 py-1 rounded-lg border border-green-100">
                             تم الرد
@@ -246,7 +257,7 @@ export default function BoardroomPage() {
                       </div>
                       
                       <div className="mt-4">
-                        {statusData.status === 'THINKING' ? (
+                        {(statusData.status === 'THINKING' || statusData.status === 'SEARCHING') ? (
                           <div className="space-y-3">
                             <div className="h-2 bg-slate-100 rounded-full w-3/4 animate-pulse" />
                             <div className="h-2 bg-slate-100 rounded-full w-full animate-pulse" />
