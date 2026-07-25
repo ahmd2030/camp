@@ -139,7 +139,7 @@ export default function DashboardHome() {
         
         try {
           const res = await processCampaignLead(lead);
-          if (res.success) {
+          if (res.success && lead.id) {
             await updateDoc(doc(db, 'leads', lead.id), { status: 'SENT' });
             sentCount++;
           }
