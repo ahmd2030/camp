@@ -57,7 +57,9 @@ export async function chatWithTeamMember(roleId: string, message: string, histor
     });
 
     if (!response.ok) {
-      throw new Error(`OpenRouter Error: ${response.status}`);
+      let errText = '';
+      try { errText = await response.text(); } catch(e) {}
+      throw new Error(`OpenRouter Error: ${response.status} - ${errText}`);
     }
 
     const data = await response.json();
@@ -109,7 +111,9 @@ export async function getBoardMemberOpinion(roleId: string, topic: string) {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenRouter Error: ${response.status}`);
+      let errText = '';
+      try { errText = await response.text(); } catch(e) {}
+      throw new Error(`OpenRouter Error: ${response.status} - ${errText}`);
     }
 
     const data = await response.json();
