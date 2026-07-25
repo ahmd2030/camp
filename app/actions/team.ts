@@ -94,21 +94,37 @@ export async function chatWithTeamMember(roleId: string, message: string, histor
         model: "openai/gpt-4o-mini", // Fallback reliable model
         messages: messages,
         tools: [
-          {
-            type: "function",
-            function: {
-              name: "search_internet",
-              description: "البحث في الإنترنت الحقيقي عن معلومات حديثة أو حقائق",
-              parameters: {
-                type: "object",
-                properties: {
-                  query: { type: "string", description: "مصطلح البحث (أبقيه قصيراً ومباشراً)" }
-                },
-                required: ["query"]
+            {
+              type: "function",
+              function: {
+                name: "search_internet",
+                description: "البحث في الإنترنت الحقيقي عن معلومات حديثة أو حقائق",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    query: { type: "string", description: "مصطلح البحث (أبقيه قصيراً ومباشراً)" }
+                  },
+                  required: ["query"]
+                }
+              }
+            },
+            {
+              type: "function",
+              function: {
+                name: "send_email_campaign",
+                description: "تجهيز رسالة بريد إلكتروني لإرسالها للعميل أو الشريك، لعرضها على المدير ليوافق عليها.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    to_email: { type: "string", description: "البريد الإلكتروني المستهدف" },
+                    subject: { type: "string", description: "عنوان الرسالة" },
+                    body: { type: "string", description: "محتوى الرسالة بصيغة HTML أنيقة وجاهزة للإرسال" }
+                  },
+                  required: ["to_email", "subject", "body"]
+                }
               }
             }
-          }
-        ]
+          ]
       })
     });
 
@@ -135,6 +151,18 @@ export async function chatWithTeamMember(roleId: string, message: string, histor
           isSearching: true, 
           query: args.query, 
           assistantMessage: responseMessage 
+        };
+      } else if (toolCall.function.name === 'send_email_campaign') {
+        const args = JSON.parse(toolCall.function.arguments);
+        return {
+          success: true,
+          isEmailDraft: true,
+          emailData: {
+            to_email: args.to_email,
+            subject: args.subject,
+            body: args.body
+          },
+          assistantMessage: responseMessage
         };
       }
     }
@@ -202,6 +230,22 @@ export async function getBoardMemberOpinion(roleId: string, topic: string) {
                 required: ["query"]
               }
             }
+          },
+          {
+            type: "function",
+            function: {
+              name: "send_email_campaign",
+              description: "تجهيز رسالة بريد إلكتروني لإرسالها للعميل أو الشريك، لعرضها على المدير ليوافق عليها.",
+              parameters: {
+                type: "object",
+                properties: {
+                  to_email: { type: "string", description: "البريد الإلكتروني المستهدف" },
+                  subject: { type: "string", description: "عنوان الرسالة" },
+                  body: { type: "string", description: "محتوى الرسالة بصيغة HTML أنيقة وجاهزة للإرسال" }
+                },
+                required: ["to_email", "subject", "body"]
+              }
+            }
           }
         ]
       })
@@ -230,6 +274,18 @@ export async function getBoardMemberOpinion(roleId: string, topic: string) {
           isSearching: true, 
           query: args.query, 
           assistantMessage: responseMessage 
+        };
+      } else if (toolCall.function.name === 'send_email_campaign') {
+        const args = JSON.parse(toolCall.function.arguments);
+        return {
+          success: true,
+          isEmailDraft: true,
+          emailData: {
+            to_email: args.to_email,
+            subject: args.subject,
+            body: args.body
+          },
+          assistantMessage: responseMessage
         };
       }
     }

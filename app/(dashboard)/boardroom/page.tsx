@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Presentation, Users, Briefcase, TrendingUp, ShieldCheck, ServerCog, Send, CheckCircle2, Loader2, Bot, ArrowRight, Forward, XCircle } from 'lucide-react';
+import { Presentation, Users, Briefcase, TrendingUp, ShieldCheck, ServerCog, Send, CheckCircle2, Loader2, Bot, ArrowRight, Forward, XCircle, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getBoardMemberOpinion, saveBoardMeeting, delegateToTeamMember, continueChatWithSearch } from '@/app/actions/team';
+import { executeEmailAction } from '@/app/actions/email';
 import { toast, Toaster } from 'sonner';
 
 const BOARD_MEMBERS = [
@@ -20,8 +21,8 @@ export default function BoardroomPage() {
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set(BOARD_MEMBERS.map(m => m.id)));
   const [meetingState, setMeetingState] = useState<'IDLE' | 'RUNNING' | 'DONE'>('IDLE');
   
-  // Track status per member: 'WAITING' | 'THINKING' | 'SEARCHING' | 'DONE' | 'ERROR'
-  const [memberStatus, setMemberStatus] = useState<Record<string, { status: string, response?: string, query?: string }>>({});
+  // Track status per member: 'WAITING' | 'THINKING' | 'SEARCHING' | 'EMAIL_DRAFT' | 'DONE' | 'ERROR'
+  const [memberStatus, setMemberStatus] = useState<Record<string, { status: string, response?: string, query?: string, emailData?: any, isSending?: boolean }>>({});
 
   // Delegation State
   const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
@@ -72,6 +73,11 @@ export default function BoardroomPage() {
           result = await continueChatWithSearch(roleId, [], result.assistantMessage, result.query, topic);
         }
 
+        if (result.success && result.isEmailDraft) {
+          setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'EMAIL_DRAFT', emailData: result.emailData } }));
+          return;
+        }
+
         if (result.success && result.response) {
           responses[roleId] = result.response;
           setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'DONE', response: result.response } }));
@@ -120,6 +126,27 @@ export default function BoardroomPage() {
     } finally {
       setIsDelegating(false);
     }
+  };
+
+  const handleApproveEmail = async (roleId: string, emailData: any) => {
+    setMemberStatus(prev => ({ ...prev, [roleId]: { ...prev[roleId], isSending: true } }));
+    try {
+      const res = await executeEmailAction(emailData.to_email, emailData.subject, emailData.body);
+      if (res.success) {
+        toast.success('تم الإرسال بنجاح!');
+        setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'DONE', response: `[نجاح] تم إرسال رسالة البريد الإلكتروني إلى ${emailData.to_email} بنجاح.` } }));
+      } else {
+        toast.error('فشل الإرسال: ' + res.error);
+        setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'DONE', response: `[فشل] لم أتمكن من إرسال البريد: ${res.error}` } }));
+      }
+    } catch (e) {
+      toast.error('حدث خطأ أثناء الإرسال');
+      setMemberStatus(prev => ({ ...prev, [roleId]: { ...prev[roleId], isSending: false } }));
+    }
+  };
+
+  const handleDenyEmail = (roleId: string) => {
+    setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'DONE', response: 'تم رفض إرسال رسالة البريد الإلكتروني.' } }));
   };
 
   return (
@@ -263,20 +290,62 @@ export default function BoardroomPage() {
                             <div className="h-2 bg-slate-100 rounded-full w-full animate-pulse" />
                             <div className="h-2 bg-slate-100 rounded-full w-5/6 animate-pulse" />
                           </div>
-                        ) : (
-                          <div className="flex flex-col gap-3">
-                            <div className="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm p-4 bg-slate-50 rounded-xl border border-slate-100">
-                              {statusData.response}
+                        ) : statusData.status === 'DONE' ? (
+                          <div className="space-y-4">
+                            <div className="text-slate-700 whitespace-pre-wrap leading-relaxed">{statusData.response}</div>
+                            
+                            <div className="pt-4 border-t border-slate-100 flex gap-2">
+                              <button 
+                                onClick={() => handleOpenDelegate(statusData.response || '')}
+                                className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-3 py-2 rounded-lg transition-colors border border-slate-100 hover:border-indigo-100"
+                              >
+                                <Forward className="w-3.5 h-3.5" />
+                                إحالة لزميل
+                              </button>
                             </div>
-                            <button 
-                              onClick={() => handleOpenDelegate(statusData.response || '')}
-                              className="self-start flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-orange-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
-                            >
-                              <Forward className="w-3.5 h-3.5" />
-                              إحالة / تفويض 
-                            </button>
                           </div>
-                        )}
+                        ) : statusData.status === 'EMAIL_DRAFT' && statusData.emailData ? (
+                          <div className="bg-white border border-indigo-100 rounded-2xl p-5 shadow-sm mt-2">
+                            <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-3">
+                              <Mail className="w-5 h-5 text-indigo-500" />
+                              اقتراح إرسال بريد إلكتروني
+                            </h4>
+                            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-4 space-y-2 text-sm">
+                              <div className="flex gap-2">
+                                <span className="text-slate-500 font-bold w-16">إلى:</span>
+                                <span className="text-slate-800 font-medium">{statusData.emailData.to_email}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="text-slate-500 font-bold w-16">الموضوع:</span>
+                                <span className="text-slate-800 font-medium">{statusData.emailData.subject}</span>
+                              </div>
+                              <div className="pt-2 border-t border-slate-200 mt-2">
+                                <span className="text-slate-500 font-bold block mb-2">المحتوى:</span>
+                                <div className="text-slate-700 bg-white p-3 rounded-lg border border-slate-100 max-h-40 overflow-y-auto" dangerouslySetInnerHTML={{ __html: statusData.emailData.body }}></div>
+                              </div>
+                            </div>
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => handleApproveEmail(member.id, statusData.emailData)}
+                                disabled={statusData.isSending}
+                                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-3 rounded-lg transition-all shadow-sm flex justify-center items-center disabled:opacity-50 text-sm"
+                              >
+                                {statusData.isSending ? 'جاري الإرسال...' : 'اعتماد وإرسال ✅'}
+                              </button>
+                              <button
+                                onClick={() => handleDenyEmail(member.id)}
+                                disabled={statusData.isSending}
+                                className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-2 px-3 rounded-lg transition-all border border-rose-100 flex justify-center items-center disabled:opacity-50 text-sm"
+                              >
+                                رفض ❌
+                              </button>
+                            </div>
+                          </div>
+                        ) : statusData.status === 'ERROR' ? (
+                          <div className="text-rose-500 font-medium bg-rose-50 p-4 rounded-xl border border-rose-100">
+                            {statusData.response}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>

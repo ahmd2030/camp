@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Briefcase, TrendingUp, ShieldCheck, XCircle, Send, Loader2, Bot, User, MessageCircle, ServerCog, Presentation, Forward } from 'lucide-react';
+import { Users, Briefcase, TrendingUp, ShieldCheck, XCircle, Send, Loader2, Bot, User, MessageCircle, ServerCog, Presentation, Forward, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { chatWithTeamMember, delegateToTeamMember, continueChatWithSearch, ChatMessage } from '@/app/actions/team';
+import { executeEmailAction } from '@/app/actions/email';
 import { toast, Toaster } from 'sonner';
 
 const TEAM_MEMBERS = [
@@ -24,6 +25,7 @@ export default function TeamPage() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [searchStatus, setSearchStatus] = useState('');
+  const [pendingEmail, setPendingEmail] = useState<{ to_email: string, subject: string, body: string } | null>(null);
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -98,7 +100,7 @@ export default function TeamPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !selectedMember || isLoading) return;
+    if (!inputMessage.trim() || !selectedMember || isLoading || pendingEmail) return;
 
     const userText = inputMessage.trim();
     setInputMessage('');
@@ -117,6 +119,12 @@ export default function TeamPage() {
         setSearchStatus(`🔍 يبحث في الإنترنت عن: "${result.query}"...`);
         result = await continueChatWithSearch(selectedMember, chatHistory, result.assistantMessage, result.query);
         setSearchStatus('');
+      }
+
+      if (result.success && result.isEmailDraft) {
+        setPendingEmail(result.emailData);
+        // Do not add the AI's internal thoughts to history until approved/denied
+        return;
       }
 
       if (result.success && result.response) {
@@ -152,16 +160,40 @@ export default function TeamPage() {
       if (result.success) {
         toast.success('تمت إحالة المهمة بنجاح!');
         setIsDelegateModalOpen(false);
-        // Open target member chat to see the result
         setSelectedMember(delegateTarget);
       } else {
         toast.error('فشل في الإحالة: ' + result.error);
       }
     } catch (error) {
-      toast.error('حدث خطأ أثناء الإحالة.');
+      toast.error('حدث خطأ غير متوقع.');
     } finally {
       setIsDelegating(false);
     }
+  };
+
+  const handleApproveEmail = async () => {
+    if (!pendingEmail) return;
+    setIsLoading(true);
+    try {
+      const res = await executeEmailAction(pendingEmail.to_email, pendingEmail.subject, pendingEmail.body);
+      if (res.success) {
+        toast.success('تم الإرسال بنجاح!');
+        setChatHistory(prev => [...prev, { role: 'assistant', content: `[نجاح] تم إرسال رسالة البريد الإلكتروني إلى ${pendingEmail.to_email} بنجاح.` }]);
+      } else {
+        toast.error('فشل الإرسال: ' + res.error);
+        setChatHistory(prev => [...prev, { role: 'assistant', content: `[فشل] لم أتمكن من إرسال البريد: ${res.error}` }]);
+      }
+    } catch (e) {
+      toast.error('حدث خطأ أثناء الإرسال');
+    } finally {
+      setIsLoading(false);
+      setPendingEmail(null);
+    }
+  };
+
+  const handleDenyEmail = () => {
+    setPendingEmail(null);
+    setChatHistory(prev => [...prev, { role: 'user', content: 'لقد رفضت إرسال هذه الرسالة. الرجاء تعديلها أو إلغاء الفكرة.' }]);
   };
 
   return (
@@ -203,7 +235,6 @@ export default function TeamPage() {
         ))}
       </div>
 
-      {/* Chat Modal */}
       <AnimatePresence>
         {selectedMember && activeMember && (
           <motion.div 
@@ -220,7 +251,6 @@ export default function TeamPage() {
               onClick={e => e.stopPropagation()}
               className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden border border-slate-100"
             >
-              {/* Chat Header */}
               <div className="bg-slate-50 p-6 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
@@ -242,7 +272,6 @@ export default function TeamPage() {
                 </button>
               </div>
 
-              {/* Chat Messages */}
               <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 space-y-6">
                 {isFetchingHistory ? (
                   <div className="h-full flex flex-col items-center justify-center text-slate-400">
@@ -304,23 +333,66 @@ export default function TeamPage() {
                     </div>
                   </motion.div>
                 )}
+                
+                {pendingEmail && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start my-4">
+                    <div className="bg-white border border-indigo-100 rounded-3xl p-6 shadow-md w-full max-w-2xl relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                      <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-4 relative z-10">
+                        <Mail className="w-6 h-6 text-indigo-500" />
+                        أعدّ الموظف رسالة بريد إلكتروني
+                      </h3>
+                      
+                      <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 mb-6 relative z-10 space-y-3">
+                        <div className="flex gap-2">
+                          <span className="text-slate-500 font-bold w-16">إلى:</span>
+                          <span className="text-slate-800 font-medium">{pendingEmail.to_email}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-slate-500 font-bold w-16">الموضوع:</span>
+                          <span className="text-slate-800 font-medium">{pendingEmail.subject}</span>
+                        </div>
+                        <div className="pt-2 border-t border-slate-200 mt-2">
+                          <span className="text-slate-500 font-bold block mb-2">المحتوى:</span>
+                          <div className="text-slate-700 text-sm bg-white p-4 rounded-xl border border-slate-100 max-h-60 overflow-y-auto" dangerouslySetInnerHTML={{ __html: pendingEmail.body }}></div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4 relative z-10">
+                        <button
+                          onClick={handleApproveEmail}
+                          disabled={isLoading}
+                          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-sm flex justify-center items-center gap-2 disabled:opacity-50"
+                        >
+                          اعتماد وإرسال ✅
+                        </button>
+                        <button
+                          onClick={handleDenyEmail}
+                          disabled={isLoading}
+                          className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-3 px-4 rounded-xl transition-all border border-rose-100 flex justify-center items-center gap-2 disabled:opacity-50"
+                        >
+                          رفض ❌
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Chat Input */}
               <div className="p-6 bg-white border-t border-slate-100">
                 <form onSubmit={handleSendMessage} className="flex gap-4 relative">
                   <input
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder={`اكتب توجيهاتك أو استشارتك لـ ${activeMember.title}...`}
+                    placeholder={pendingEmail ? "يرجى اتخاذ قرار بشأن البريد أعلاه..." : `اكتب توجيهاتك أو استشارتك لـ ${activeMember.title}...`}
                     className="flex-1 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl py-4 pr-6 pl-16 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all shadow-inner"
-                    disabled={isLoading || isFetchingHistory}
+                    disabled={isLoading || isFetchingHistory || pendingEmail !== null}
                   />
                   <button
                     type="submit"
-                    disabled={isLoading || isFetchingHistory || !inputMessage.trim()}
+                    disabled={isLoading || isFetchingHistory || !inputMessage.trim() || pendingEmail !== null}
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-orange-500 hover:bg-orange-600 text-white rounded-xl flex items-center justify-center transition-colors disabled:opacity-50 disabled:hover:bg-orange-500"
                   >
                     <Send className="w-5 h-5 -mr-1" />
