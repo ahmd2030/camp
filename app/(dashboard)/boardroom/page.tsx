@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Presentation, Users, Briefcase, TrendingUp, ShieldCheck, ServerCog, Send, CheckCircle2, Loader2, Bot, ArrowRight, Forward, XCircle, Mail } from 'lucide-react';
+import { Presentation, Users, Briefcase, TrendingUp, ShieldCheck, ServerCog, Send, CheckCircle2, Loader2, Bot, ArrowRight, Forward, XCircle, Mail, Paperclip, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getBoardMemberOpinion, saveBoardMeeting, delegateToTeamMember, continueChatWithSearch } from '@/app/actions/team';
 import { executeEmailAction } from '@/app/actions/email';
+import { extractTextFromFile } from '@/app/actions/document';
 import { toast, Toaster } from 'sonner';
 
 const BOARD_MEMBERS = [
@@ -23,6 +24,9 @@ export default function BoardroomPage() {
   
   // Track status per member: 'WAITING' | 'THINKING' | 'SEARCHING' | 'EMAIL_DRAFT' | 'DONE' | 'ERROR'
   const [memberStatus, setMemberStatus] = useState<Record<string, { status: string, response?: string, query?: string, emailData?: any, isSending?: boolean }>>({});
+
+  const [attachedFile, setAttachedFile] = useState<{ name: string, content: string } | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   // Delegation State
   const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
@@ -62,11 +66,15 @@ export default function BoardroomPage() {
     setMemberStatus(initialStatus);
 
     const responses: Record<string, string> = {};
+    let finalTopic = topic;
+    if (attachedFile) {
+      finalTopic = `[FILE CONTENT: ${attachedFile.name}]\n${attachedFile.content}\n[/FILE CONTENT]\n\n${topic}`;
+    }
 
     // Parallel execution on client-side to avoid server timeout
     const promises = Array.from(selectedMembers).map(async (roleId) => {
       try {
-        let result = await getBoardMemberOpinion(roleId, topic);
+        let result = await getBoardMemberOpinion(roleId, finalTopic);
         
         if (result.success && result.isSearching) {
           setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'SEARCHING', query: result.query } }));
@@ -93,7 +101,7 @@ export default function BoardroomPage() {
 
     // Meeting Finished, save to DB
     if (Object.keys(responses).length > 0) {
-      await saveBoardMeeting(topic, responses);
+      await saveBoardMeeting(finalTopic, responses);
       toast.success('اكتمل اجتماع مجلس الإدارة وتم حفظ النتائج');
     }
     
@@ -149,6 +157,41 @@ export default function BoardroomPage() {
     setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'DONE', response: 'تم رفض إرسال رسالة البريد الإلكتروني.' } }));
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['.pdf', '.csv', '.txt'];
+    if (!allowedTypes.some(ext => file.name.toLowerCase().endsWith(ext))) {
+      toast.error('صيغة الملف غير مدعومة. الرجاء إرفاق PDF, CSV, أو TXT.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('حجم الملف يتجاوز الحد الأقصى (5MB).');
+      return;
+    }
+
+    setIsExtracting(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const result = await extractTextFromFile(formData);
+      if (result.success) {
+        setAttachedFile({ name: result.name || file.name, content: result.text || '' });
+        toast.success(`تم قراءة الملف: ${file.name}`);
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err) {
+      toast.error('فشل استخراج النص من الملف');
+    } finally {
+      setIsExtracting(false);
+      e.target.value = ''; // Reset input
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 p-8 font-sans -m-8" dir="rtl">
       <Toaster position="top-center" richColors />
@@ -177,14 +220,47 @@ export default function BoardroomPage() {
             animate={{ opacity: 1, x: 0 }}
             className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100"
           >
-            <h3 className="text-xl font-bold text-slate-800 mb-4">موضوع النقاش أو القرار</h3>
-            <textarea
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              disabled={meetingState === 'RUNNING'}
-              placeholder="مثال: أريد إطلاق حملة تسويقية بنصف الميزانية الحالية، وتوظيف 5 مسوقين جدد، واستخدام سيرفرات إضافية لتسريع السحب."
-              className="w-full h-40 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all resize-none mb-6 shadow-inner disabled:opacity-60"
-            />
+            <h3 className="text-xl font-bold text-slate-800 mb-4">ما هو الموضوع الذي تريد مناقشته؟</h3>
+            
+            <div className="flex flex-col gap-2 mb-6">
+              {attachedFile && (
+                <div className="self-start inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-medium">
+                  <Paperclip className="w-4 h-4" />
+                  <span className="max-w-[200px] truncate">{attachedFile.name}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setAttachedFile(null)}
+                    className="hover:bg-indigo-200 rounded-full p-0.5 transition-colors"
+                    disabled={meetingState === 'RUNNING'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <div className="relative">
+                <input 
+                  type="file"
+                  id="board-file-upload"
+                  className="hidden"
+                  accept=".pdf,.csv,.txt"
+                  onChange={handleFileChange}
+                  disabled={isExtracting || meetingState === 'RUNNING'}
+                />
+                <label 
+                  htmlFor="board-file-upload"
+                  className={`absolute right-4 top-4 w-10 h-10 flex items-center justify-center rounded-xl cursor-pointer transition-colors ${isExtracting || meetingState === 'RUNNING' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 text-slate-400 hover:text-indigo-600'}`}
+                >
+                  {isExtracting ? <Loader2 className="w-5 h-5 animate-spin text-orange-500" /> : <Paperclip className="w-5 h-5" />}
+                </label>
+                <textarea
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  disabled={meetingState === 'RUNNING' || isExtracting}
+                  placeholder={isExtracting ? "جاري قراءة الملف..." : "مثال: أريد إطلاق حملة تسويقية بنصف الميزانية الحالية..."}
+                  className="w-full h-40 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl p-4 pr-16 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all resize-none shadow-inner disabled:opacity-60"
+                />
+              </div>
+            </div>
 
             <h3 className="text-lg font-bold text-slate-800 mb-4">الاستدعاء الانتقائي (من سيحضر؟)</h3>
             <div className="space-y-3 mb-8">

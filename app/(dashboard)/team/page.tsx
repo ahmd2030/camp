@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Briefcase, TrendingUp, ShieldCheck, XCircle, Send, Loader2, Bot, User, MessageCircle, ServerCog, Presentation, Forward, Mail } from 'lucide-react';
+import { Users, Briefcase, TrendingUp, ShieldCheck, XCircle, Send, Loader2, Bot, User, MessageCircle, ServerCog, Presentation, Forward, Mail, Paperclip, X } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { chatWithTeamMember, delegateToTeamMember, continueChatWithSearch, ChatMessage } from '@/app/actions/team';
 import { executeEmailAction } from '@/app/actions/email';
+import { extractTextFromFile } from '@/app/actions/document';
 import { toast, Toaster } from 'sonner';
 
 const TEAM_MEMBERS = [
@@ -26,6 +27,8 @@ export default function TeamPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchStatus, setSearchStatus] = useState('');
   const [pendingEmail, setPendingEmail] = useState<{ to_email: string, subject: string, body: string } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string, content: string } | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -100,10 +103,15 @@ export default function TeamPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !selectedMember || isLoading || pendingEmail) return;
+    if (!inputMessage.trim() || !selectedMember || isLoading || pendingEmail || isExtracting) return;
 
-    const userText = inputMessage.trim();
+    let userText = inputMessage.trim();
+    if (attachedFile) {
+      userText = `[FILE CONTENT: ${attachedFile.name}]\n${attachedFile.content}\n[/FILE CONTENT]\n\n${userText}`;
+    }
+
     setInputMessage('');
+    setAttachedFile(null);
     
     // Add user message to UI immediately
     const updatedHistory: ChatMessage[] = [...chatHistory, { role: 'user', content: userText }];
@@ -196,8 +204,43 @@ export default function TeamPage() {
     setChatHistory(prev => [...prev, { role: 'user', content: 'لقد رفضت إرسال هذه الرسالة. الرجاء تعديلها أو إلغاء الفكرة.' }]);
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['.pdf', '.csv', '.txt'];
+    if (!allowedTypes.some(ext => file.name.toLowerCase().endsWith(ext))) {
+      toast.error('صيغة الملف غير مدعومة. الرجاء إرفاق PDF, CSV, أو TXT.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('حجم الملف يتجاوز الحد الأقصى (5MB).');
+      return;
+    }
+
+    setIsExtracting(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const result = await extractTextFromFile(formData);
+      if (result.success) {
+        setAttachedFile({ name: result.name || file.name, content: result.text || '' });
+        toast.success(`تم قراءة الملف: ${file.name}`);
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err) {
+      toast.error('فشل استخراج النص من الملف');
+    } finally {
+      setIsExtracting(false);
+      e.target.value = ''; // Reset input
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 p-8 font-sans -m-8" dir="rtl">
+    <div className="flex h-screen bg-slate-50 font-sans -m-8" dir="rtl">
       <Toaster position="top-center" richColors />
       
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -380,19 +423,48 @@ export default function TeamPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <div className="p-6 bg-white border-t border-slate-100">
+              <div className="p-6 bg-white border-t border-slate-100 flex flex-col gap-2">
+                {attachedFile && (
+                  <div className="self-start inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-sm font-medium">
+                    <Paperclip className="w-4 h-4" />
+                    <span className="max-w-[200px] truncate">{attachedFile.name}</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setAttachedFile(null)}
+                      className="hover:bg-indigo-200 rounded-full p-0.5 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+                
                 <form onSubmit={handleSendMessage} className="flex gap-4 relative">
+                  <input 
+                    type="file"
+                    id="file-upload"
+                    className="hidden"
+                    accept=".pdf,.csv,.txt"
+                    onChange={handleFileChange}
+                    disabled={isExtracting || isLoading || pendingEmail !== null}
+                  />
+                  <label 
+                    htmlFor="file-upload"
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-xl cursor-pointer transition-colors ${isExtracting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 text-slate-400 hover:text-indigo-600'}`}
+                  >
+                    {isExtracting ? <Loader2 className="w-5 h-5 animate-spin text-orange-500" /> : <Paperclip className="w-5 h-5" />}
+                  </label>
+                  
                   <input
                     type="text"
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder={pendingEmail ? "يرجى اتخاذ قرار بشأن البريد أعلاه..." : `اكتب توجيهاتك أو استشارتك لـ ${activeMember.title}...`}
-                    className="flex-1 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl py-4 pr-6 pl-16 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all shadow-inner"
-                    disabled={isLoading || isFetchingHistory || pendingEmail !== null}
+                    placeholder={pendingEmail ? "يرجى اتخاذ قرار بشأن البريد أعلاه..." : isExtracting ? "جاري قراءة الملف..." : `اكتب توجيهاتك لـ ${activeMember.title}...`}
+                    className="flex-1 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl py-4 pr-14 pl-16 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all shadow-inner"
+                    disabled={isLoading || isFetchingHistory || pendingEmail !== null || isExtracting}
                   />
                   <button
                     type="submit"
-                    disabled={isLoading || isFetchingHistory || !inputMessage.trim() || pendingEmail !== null}
+                    disabled={isLoading || isFetchingHistory || !inputMessage.trim() || pendingEmail !== null || isExtracting}
                     className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-orange-500 hover:bg-orange-600 text-white rounded-xl flex items-center justify-center transition-colors disabled:opacity-50 disabled:hover:bg-orange-500"
                   >
                     <Send className="w-5 h-5 -mr-1" />
