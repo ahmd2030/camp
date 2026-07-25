@@ -46,7 +46,9 @@ export async function chatWithTeamMember(roleId: string, message: string, histor
       method: 'POST',
       headers: {
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "Mango AI"
       },
       body: JSON.stringify({
         model: "anthropic/claude-3.5-sonnet", // Stronger model for deep logic
@@ -96,7 +98,9 @@ export async function getBoardMemberOpinion(roleId: string, topic: string) {
       method: 'POST',
       headers: {
         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "Mango AI"
       },
       body: JSON.stringify({
         model: "anthropic/claude-3.5-sonnet",
