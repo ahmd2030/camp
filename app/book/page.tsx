@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { Calendar as CalendarIcon, Clock, User, Mail, MessageSquare, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
+import { markSmartStop } from '@/app/actions/campaigns';
 
 export default function BookingPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1); // 1: DateTime, 2: Details, 3: Success
@@ -62,6 +63,9 @@ export default function BookingPage() {
         status: 'scheduled',
         createdAt: new Date().toISOString()
       });
+
+      // Smart Stop
+      await markSmartStop(formData.email, 'booking');
 
       setStep(3);
     } catch (error) {

@@ -3,6 +3,7 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { sendTestEmail } from '@/app/actions/sendEmail';
+import { markSmartStop } from '@/app/actions/campaigns';
 
 interface InquiryResponseResult {
   success: boolean;
@@ -116,27 +117,28 @@ export async function processInquiryAutonomous(inquiryId: string, clientName: st
       // 3. Second Draft (Correction)
       draft = await generateDraft(inquiryText, clientName, audit1.feedback);
       
-      // We assume the second pass is good enough to prevent infinite loops, 
-      // but you can add a second audit if strictness is highly prioritized.
     }
 
     // 4. Send the Email
-    // Note: Assuming sendTestEmail sends to developer for now, 
-    // in production this would be sendEmail(clientEmail, draft).
     const emailResult = await sendTestEmail(draft);
 
-    if (emailResult.success) {
-      // 5. Update Firestore Status
-      const inquiryRef = doc(db, 'inquiries', inquiryId);
-      await updateDoc(inquiryRef, {
-        status: 'تم الإرسال بنجاح 🟢',
-        aiResponse: draft,
-        respondedAt: new Date().toISOString()
-      });
-      return { success: true, finalMessage: draft };
-    } else {
-      return { success: false, error: "فشل إرسال البريد الإلكتروني للعميل." };
+    if (!emailResult.success) {
+      await updateDoc(doc(db, 'inquiries', inquiryId), { status: 'error_email' });
+      return { success: false, error: 'فشل إرسال البريد الإلكتروني للعميل' };
     }
+
+    // 6. Smart Stop: mark as replied
+    await markSmartStop(clientEmail, 'reply');
+
+    // 7. Update status to processed
+    const inquiryRef = doc(db, 'inquiries', inquiryId);
+    await updateDoc(inquiryRef, {
+      status: 'processed',
+      aiResponse: draft,
+      respondedAt: new Date().toISOString()
+    });
+
+    return { success: true, finalMessage: draft };
 
   } catch (error: any) {
     console.error("Pipeline Error:", error);

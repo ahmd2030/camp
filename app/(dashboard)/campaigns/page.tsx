@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rocket, Clock, Play, Pause, AlertTriangle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Rocket, Clock, Play, AlertTriangle, CheckCircle2, XCircle, Loader2, MessageCircle } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { toast, Toaster } from 'sonner';
 import { processCampaignLead } from '@/app/actions/campaigns';
+import { getPendingFollowUps, executeDripLead } from '@/app/actions/drip';
 
 interface CampaignLead {
   id: string;
@@ -17,7 +18,9 @@ interface CampaignLead {
 }
 
 export default function CampaignsPage() {
+  const [activeTab, setActiveTab] = useState<'bulk' | 'drip'>('bulk');
   const [leads, setLeads] = useState<CampaignLead[]>([]);
+  const [dripLeads, setDripLeads] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   
@@ -28,8 +31,12 @@ export default function CampaignsPage() {
   const [showHoursWarning, setShowHoursWarning] = useState(false);
   
   useEffect(() => {
-    fetchReadyLeads();
-  }, []);
+    if (activeTab === 'bulk') {
+      fetchReadyLeads();
+    } else {
+      fetchDripLeads();
+    }
+  }, [activeTab]);
 
   const fetchReadyLeads = async () => {
     setLoading(true);
@@ -41,8 +48,26 @@ export default function CampaignsPage() {
         fetched.push({ id: doc.id, ...doc.data() } as CampaignLead);
       });
       setLeads(fetched);
+      setSelectedIds(new Set());
     } catch (error) {
       toast.error('فشل جلب العملاء المستهدفين.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDripLeads = async () => {
+    setLoading(true);
+    try {
+      const result = await getPendingFollowUps();
+      if (result.success && result.leads) {
+        setDripLeads(result.leads);
+        setSelectedIds(new Set(result.leads.map((l: any) => l.id))); // Auto select all for drip
+      } else {
+        toast.error(result.error || 'فشل جلب المتابعات');
+      }
+    } catch (error) {
+      toast.error('خطأ غير متوقع');
     } finally {
       setLoading(false);
     }
@@ -59,14 +84,14 @@ export default function CampaignsPage() {
   };
 
   const selectAll = () => {
-    if (selectedIds.size === leads.length) {
+    const currentList = activeTab === 'bulk' ? leads : dripLeads;
+    if (selectedIds.size === currentList.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(leads.map(l => l.id)));
+      setSelectedIds(new Set(currentList.map((l: any) => l.id)));
     }
   };
 
-  // Check if current time is outside 9 AM to 5 PM
   const checkBusinessHours = () => {
     const hour = new Date().getHours();
     return hour >= 9 && hour < 17;
@@ -91,24 +116,23 @@ export default function CampaignsPage() {
     setProgress(0);
     setResults([]);
 
-    const selectedLeads = leads.filter(l => selectedIds.has(l.id));
-    const total = selectedLeads.length;
+    const currentList = activeTab === 'bulk' ? leads : dripLeads;
+    const selectedList = currentList.filter((l: any) => selectedIds.has(l.id));
+    const total = selectedList.length;
 
     for (let i = 0; i < total; i++) {
-      if (!isCampaignRunning) {
-        // Handle pause/stop logic here if needed (checking a mutable ref in real scenario, 
-        // for MVP we rely on the loop finishing or checking the state - though state updates might be async)
-      }
-      
-      const lead = selectedLeads[i];
+      const lead = selectedList[i];
       try {
-        const result = await processCampaignLead(lead);
-        setResults(prev => [...prev, { id: lead.id, success: result.success, message: result.message }]);
-        
-        // Update local status so it gets removed from next fetch
-        if (result.success) {
-          const leadRef = doc(db, 'leads', lead.id);
-          await updateDoc(leadRef, { status: 'SENT' });
+        if (activeTab === 'bulk') {
+          const result = await processCampaignLead(lead);
+          setResults(prev => [...prev, { id: lead.id, success: result.success, message: result.message }]);
+          if (result.success) {
+            await updateDoc(doc(db, 'leads', lead.id), { status: 'SENT' });
+          }
+        } else {
+          // Drip execution
+          const result = await executeDripLead(lead);
+          setResults(prev => [...prev, { id: lead.id, success: result.success, message: result.message }]);
         }
       } catch (e: any) {
         setResults(prev => [...prev, { id: lead.id, success: false, message: e.message }]);
@@ -116,7 +140,6 @@ export default function CampaignsPage() {
 
       setProgress(((i + 1) / total) * 100);
 
-      // Rate limiting: wait 2 seconds between emails to avoid hitting limits
       if (i < total - 1) {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
@@ -124,16 +147,21 @@ export default function CampaignsPage() {
 
     setIsCampaignRunning(false);
     toast.success('تم إنهاء إرسال الدفعة الحالية!');
-    // Refresh the list to remove sent leads
-    await fetchReadyLeads();
+    if (activeTab === 'bulk') {
+      await fetchReadyLeads();
+    } else {
+      await fetchDripLeads();
+    }
     setSelectedIds(new Set());
   };
+
+  const currentList = activeTab === 'bulk' ? leads : dripLeads;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 p-8 font-sans -m-8 flex flex-col" dir="rtl">
       <Toaster position="top-center" richColors />
       
-      {/* Header */}
+      {/* Header & Tabs */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
@@ -142,6 +170,28 @@ export default function CampaignsPage() {
           </h1>
           <p className="text-slate-500 mt-2">محرك الإرسال الذكي لتدفق المبيعات (Smart Bulk Engine)</p>
         </div>
+        
+        <div className="flex p-1 bg-slate-200/50 rounded-xl">
+          <button 
+            onClick={() => !isCampaignRunning && setActiveTab('bulk')}
+            className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all ${
+              activeTab === 'bulk' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            إرسال جديد
+          </button>
+          <button 
+            onClick={() => !isCampaignRunning && setActiveTab('drip')}
+            className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 ${
+              activeTab === 'drip' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            المتابعات التلقائية
+            {dripLeads.length > 0 && activeTab !== 'drip' && (
+              <span className="flex w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -149,12 +199,14 @@ export default function CampaignsPage() {
         {/* Left Column: List of Leads */}
         <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col h-[70vh]">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-slate-800">قائمة المستهدفين ({leads.length})</h2>
+            <h2 className="text-xl font-bold text-slate-800">
+              {activeTab === 'bulk' ? `قائمة المستهدفين (${leads.length})` : `متابعات معلقة (${dripLeads.length})`}
+            </h2>
             <button 
               onClick={selectAll}
               className="text-sm font-semibold text-orange-600 hover:text-orange-700 bg-orange-50 px-3 py-1.5 rounded-lg"
             >
-              {selectedIds.size === leads.length ? 'إلغاء التحديد' : 'تحديد الكل'}
+              {selectedIds.size === currentList.length ? 'إلغاء التحديد' : 'تحديد الكل'}
             </button>
           </div>
 
@@ -162,17 +214,20 @@ export default function CampaignsPage() {
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
             </div>
-          ) : leads.length === 0 ? (
+          ) : currentList.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-slate-500">
               <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                 <CheckCircle2 className="w-8 h-8 text-slate-400" />
               </div>
-              <p>لا يوجد عملاء في قائمة الانتظار حالياً.</p>
-              <p className="text-sm mt-2">توجه إلى "رادار الصيد" لجلب عملاء جدد.</p>
+              <p>
+                {activeTab === 'bulk' 
+                  ? 'لا يوجد عملاء في قائمة الانتظار حالياً.' 
+                  : 'لا توجد متابعات مستحقة اليوم.'}
+              </p>
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-              {leads.map(lead => (
+              {currentList.map((lead: any) => (
                 <div 
                   key={lead.id}
                   onClick={() => !isCampaignRunning && toggleSelection(lead.id)}
@@ -188,7 +243,11 @@ export default function CampaignsPage() {
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-800">{lead.businessName}</h4>
-                    <p className="text-sm text-slate-500 mt-1">{lead.status === 'READY_TO_SEND' ? 'جاهز للإرسال (الرسالة مصاغة)' : 'بانتظار الصياغة التلقائية'}</p>
+                    <p className="text-sm text-slate-500 mt-1">
+                      {activeTab === 'bulk' 
+                        ? (lead.status === 'READY_TO_SEND' ? 'جاهز للإرسال (الرسالة مصاغة)' : 'بانتظار الصياغة التلقائية')
+                        : `متابعة رقم ${(lead.followUpStage || 0) + 1} - بانتظار تغيير الزاوية التسويقية`}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -245,8 +304,8 @@ export default function CampaignsPage() {
                 disabled={selectedIds.size === 0 || loading}
                 className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-6 py-4 rounded-xl font-bold transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Play className="w-5 h-5" />
-                إطلاق الحملة
+                {activeTab === 'bulk' ? <Play className="w-5 h-5" /> : <MessageCircle className="w-5 h-5" />}
+                {activeTab === 'bulk' ? 'إطلاق الحملة' : 'تشغيل المتابعات الآن'}
               </button>
             )}
 
