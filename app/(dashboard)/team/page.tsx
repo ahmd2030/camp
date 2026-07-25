@@ -46,15 +46,26 @@ export default function TeamPage() {
     try {
       const q = query(
         collection(db, 'team_chats'),
-        where('roleId', '==', roleId),
-        orderBy('timestamp', 'asc')
+        where('roleId', '==', roleId)
       );
       const snapshot = await getDocs(q);
-      const history: ChatMessage[] = [];
+      const historyDocs: any[] = [];
       snapshot.forEach(doc => {
-        const data = doc.data();
-        history.push({ role: data.role, content: data.content });
+        historyDocs.push(doc.data());
       });
+      
+      // Sort in memory to avoid requiring a composite index in Firestore
+      historyDocs.sort((a, b) => {
+        const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
+        const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;
+        return timeA - timeB;
+      });
+      
+      const history: ChatMessage[] = historyDocs.map(data => ({
+        role: data.role,
+        content: data.content
+      }));
+      
       setChatHistory(history);
     } catch (error) {
       console.error("Failed to load chat history:", error);
