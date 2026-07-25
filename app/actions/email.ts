@@ -3,7 +3,7 @@
 import { Resend } from 'resend';
 
 // Initialize Resend with the API key from environment variables
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
 
 export async function executeEmailAction(to: string, subject: string, html: string) {
   if (!process.env.RESEND_API_KEY) {
