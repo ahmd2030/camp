@@ -294,7 +294,9 @@ export default function CampaignsPage() {
                     {r.success ? (
                       <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
                     ) : (
-                      <XCircle className="w-5 h-5 text-red-500 shrink-0" title={r.message} />
+                      <span title={r.message} className="shrink-0 flex items-center justify-center">
+                        <XCircle className="w-5 h-5 text-red-500" />
+                      </span>
                     )}
                   </div>
                 ))}
