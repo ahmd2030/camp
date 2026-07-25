@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Briefcase, TrendingUp, ShieldCheck, XCircle, Send, Loader2, Bot, User, MessageCircle, ServerCog, Presentation } from 'lucide-react';
+import { Users, Briefcase, TrendingUp, ShieldCheck, XCircle, Send, Loader2, Bot, User, MessageCircle, ServerCog, Presentation, Forward } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { chatWithTeamMember, ChatMessage } from '@/app/actions/team';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { chatWithTeamMember, delegateToTeamMember, ChatMessage } from '@/app/actions/team';
 import { toast, Toaster } from 'sonner';
 
 const TEAM_MEMBERS = [
@@ -24,8 +25,27 @@ export default function TeamPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Delegation State
+  const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
+  const [delegateContextText, setDelegateContextText] = useState('');
+  const [delegateTarget, setDelegateTarget] = useState('cmo');
+  const [delegateInstruction, setDelegateInstruction] = useState('');
+  const [isDelegating, setIsDelegating] = useState(false);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const activeMember = TEAM_MEMBERS.find(m => m.id === selectedMember);
+
+  useEffect(() => {
+    const memberParam = searchParams?.get('member');
+    if (memberParam && TEAM_MEMBERS.find(m => m.id === memberParam)) {
+      setSelectedMember(memberParam);
+      // Clean up url without reload
+      router.replace('/team', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (selectedMember) {
@@ -104,6 +124,35 @@ export default function TeamPage() {
       setChatHistory(chatHistory);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleOpenDelegate = (messageContent: string) => {
+    setDelegateContextText(messageContent);
+    setIsDelegateModalOpen(true);
+    setDelegateInstruction('');
+  };
+
+  const handleDelegateSubmit = async () => {
+    if (!delegateTarget || !delegateInstruction.trim()) return;
+    setIsDelegating(true);
+
+    const fullMessage = `[تقرير مُحال من زميل آخر]:\n${delegateContextText}\n\n[أوامر وتوجيهات المدير لك]:\n${delegateInstruction}`;
+
+    try {
+      const result = await delegateToTeamMember(delegateTarget, fullMessage);
+      if (result.success) {
+        toast.success('تمت إحالة المهمة بنجاح!');
+        setIsDelegateModalOpen(false);
+        // Open target member chat to see the result
+        setSelectedMember(delegateTarget);
+      } else {
+        toast.error('فشل في الإحالة: ' + result.error);
+      }
+    } catch (error) {
+      toast.error('حدث خطأ أثناء الإحالة.');
+    } finally {
+      setIsDelegating(false);
     }
   };
 
@@ -209,8 +258,19 @@ export default function TeamPage() {
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-orange-500 text-white' : 'bg-white border border-slate-200'}`}>
                         {msg.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5 text-slate-600" />}
                       </div>
-                      <div className={`max-w-[80%] rounded-2xl p-4 whitespace-pre-wrap leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-orange-500 text-white rounded-tl-sm' : 'bg-white text-slate-700 border border-slate-100 rounded-tr-sm'}`}>
-                        {msg.content}
+                      <div className="flex flex-col gap-2 max-w-[80%]">
+                        <div className={`rounded-2xl p-4 whitespace-pre-wrap leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-orange-500 text-white rounded-tl-sm' : 'bg-white text-slate-700 border border-slate-100 rounded-tr-sm'}`}>
+                          {msg.content}
+                        </div>
+                        {msg.role === 'assistant' && (
+                          <button 
+                            onClick={() => handleOpenDelegate(msg.content)}
+                            className="self-start flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-orange-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                          >
+                            <Forward className="w-3.5 h-3.5" />
+                            إحالة / تفويض 
+                          </button>
+                        )}
                       </div>
                     </motion.div>
                   ))
@@ -250,6 +310,86 @@ export default function TeamPage() {
                     <Send className="w-5 h-5 -mr-1" />
                   </button>
                 </form>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delegation Modal */}
+      <AnimatePresence>
+        {isDelegateModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 p-6 md:p-8 relative"
+            >
+              <button 
+                onClick={() => setIsDelegateModalOpen(false)}
+                className="absolute top-6 left-6 text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors"
+                disabled={isDelegating}
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+              
+              <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3">
+                <Forward className="w-7 h-7 text-orange-500" />
+                إحالة المهمة (Delegation)
+              </h2>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">النص المُحال:</label>
+                  <div className="bg-slate-50 text-slate-600 p-4 rounded-xl text-sm border border-slate-200 h-32 overflow-y-auto whitespace-pre-wrap">
+                    {delegateContextText}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">إلى الموظف المستهدف:</label>
+                  <select 
+                    value={delegateTarget} 
+                    onChange={e => setDelegateTarget(e.target.value)}
+                    className="w-full bg-white border border-slate-300 text-slate-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500/50 appearance-none cursor-pointer font-medium"
+                    disabled={isDelegating}
+                  >
+                    {TEAM_MEMBERS.map(m => (
+                      <option key={m.id} value={m.id}>{m.title}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">أوامرك وتوجيهاتك:</label>
+                  <textarea 
+                    value={delegateInstruction}
+                    onChange={e => setDelegateInstruction(e.target.value)}
+                    placeholder="اكتب توجيهاتك للموظف الجديد هنا ليعمل على هذا التقرير..."
+                    className="w-full h-32 bg-white border border-slate-300 text-slate-800 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-orange-500/50 resize-none font-medium leading-relaxed"
+                    disabled={isDelegating}
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-3">
+                  <button 
+                    onClick={() => setIsDelegateModalOpen(false)}
+                    disabled={isDelegating}
+                    className="px-6 py-3 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                  <button 
+                    onClick={handleDelegateSubmit}
+                    disabled={isDelegating || !delegateInstruction.trim()}
+                    className="px-6 py-3 text-white bg-orange-500 hover:bg-orange-600 rounded-xl font-bold transition-colors flex items-center gap-2 shadow-md disabled:opacity-50"
+                  >
+                    {isDelegating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                    إرسال وإحالة
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

@@ -4,6 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { Save, Bell, Shield, PaintBucket, Loader2, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { updateProfile, updatePassword } from 'firebase/auth';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { BookOpen } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -20,11 +23,45 @@ export default function SettingsPage() {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState('');
 
+  // State for Company Context
+  const [companyContext, setCompanyContext] = useState('');
+  const [isSavingContext, setIsSavingContext] = useState(false);
+  const [contextSuccess, setContextSuccess] = useState(false);
+
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || 'مدير النظام');
     }
+    fetchCompanyContext();
   }, [user]);
+
+  const fetchCompanyContext = async () => {
+    try {
+      const docRef = doc(db, 'settings', 'company_context');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setCompanyContext(docSnap.data().context || '');
+      }
+    } catch (error) {
+      console.error("Failed to fetch company context", error);
+    }
+  };
+
+  const handleUpdateCompanyContext = async () => {
+    setIsSavingContext(true);
+    setContextSuccess(false);
+    try {
+      const docRef = doc(db, 'settings', 'company_context');
+      await setDoc(docRef, { context: companyContext }, { merge: true });
+      setContextSuccess(true);
+      setTimeout(() => setContextSuccess(false), 3000);
+    } catch (error) {
+      console.error("Failed to update company context", error);
+      alert("حدث خطأ أثناء حفظ سياسات الشركة.");
+    } finally {
+      setIsSavingContext(false);
+    }
+  };
 
   const handleUpdateProfile = async () => {
     if (!user) return;
@@ -87,6 +124,12 @@ export default function SettingsPage() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'general' ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
           >
             <Shield className="w-5 h-5" /> الحساب والأمان
+          </button>
+          <button 
+            onClick={() => setActiveTab('company')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'company' ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+          >
+            <BookOpen className="w-5 h-5" /> سياسات الشركة (AI)
           </button>
           <button 
             onClick={() => setActiveTab('notifications')}
@@ -205,6 +248,40 @@ export default function SettingsPage() {
                   <input type="checkbox" defaultChecked className="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded" />
                   <span className="text-gray-700 text-sm">تنبيهات تقارير الأداء الأسبوعية</span>
                 </label>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'company' && (
+            <div className="space-y-6 animate-in fade-in">
+              <div className="border-b pb-2">
+                <h3 className="text-lg font-bold text-gray-900">الذاكرة المؤسسية الموحدة</h3>
+                <p className="text-sm text-gray-500">سياسات وتوجيهات الشركة الدائمة (يتم حقنها في وعي جميع موظفي الذكاء الاصطناعي).</p>
+              </div>
+              
+              <div className="space-y-4">
+                <textarea 
+                  value={companyContext}
+                  onChange={(e) => setCompanyContext(e.target.value)}
+                  placeholder="اكتب توجيهات الشركة الدائمة هنا، مثلاً: نحن شركة نركز على الربحية السريعة... يجب دائماً استخدام نبرة حماسية... تجنب اقتراح أفكار تتطلب استثماراً مالياً كبيراً..."
+                  className="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none text-sm leading-relaxed"
+                />
+                
+                <div className="pt-2 flex items-center gap-4">
+                  <button 
+                    onClick={handleUpdateCompanyContext}
+                    disabled={isSavingContext}
+                    className="flex items-center justify-center gap-2 bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-70 min-w-[140px]"
+                  >
+                    {isSavingContext ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    حفظ التوجيهات
+                  </button>
+                  {contextSuccess && (
+                    <span className="text-sm text-green-600 font-medium flex items-center gap-1 animate-in fade-in">
+                      <CheckCircle2 className="w-4 h-4" /> تم حفظ الذاكرة الموحدة بنجاح
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )}

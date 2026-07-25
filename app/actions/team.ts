@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -17,6 +17,19 @@ const ROLES: Record<string, string> = {
 };
 
 const PUSHBACK_RULE = `القاعدة الذهبية الصارمة: أنت موظف خبير في مجالك. هدفك الأوحد هو مصلحة الشركة وزيادة أرباحها وكفاءتها. يُمنع منعاً باتاً مجاملة المدير أو الموافقة على قراراته لمجرد إرضائه أو لتجنب الصدام. إذا اقترح المدير فكرة خاطئة، غير مجدية مالياً، أو تضر بالعمل، يجب عليك معارضته بأدب واحترافية وتقديم الحجج، البيانات، والحلول البديلة التي تخدم مصلحة الشركة فقط. لا تستخدم عبارات متملقة مثل "فكرة رائعة يا سيدي" إذا كانت الفكرة سيئة. كن حاسماً، منطقياً، ومباشراً.`;
+
+async function getCompanyContext(): Promise<string> {
+  try {
+    const docRef = doc(db, 'settings', 'company_context');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data().context || '';
+    }
+  } catch (error) {
+    console.error("Failed to fetch company context:", error);
+  }
+  return '';
+}
 
 export async function chatWithTeamMember(roleId: string, message: string, history: ChatMessage[] = []) {
   try {
@@ -34,6 +47,11 @@ export async function chatWithTeamMember(roleId: string, message: string, histor
     
     if (roleId === 'coo') {
       systemPrompt = `أنت مدير النظام والعمليات التقنية في شركة Mango AI. هدفك حماية موارد الخوادم وتقليل التكاليف التقنية. ارفض أي فكرة إدارية تستهلك موارد السيرفر بلا فائدة أو تهدد استقرار النظام، ولا تجامل المدير أبداً.\n\nتحدث بمهنية، بضمير المتكلم نيابة عن القسم التقني، وباللغة العربية الفصحى الواضحة.`;
+    }
+
+    const companyContext = await getCompanyContext();
+    if (companyContext) {
+      systemPrompt += `\n\n[COMPANY DIRECTIVES]:\n${companyContext}`;
     }
 
     const messages = [
@@ -91,6 +109,11 @@ export async function getBoardMemberOpinion(roleId: string, topic: string) {
       systemPrompt = `أنت مدير النظام والعمليات التقنية في شركة Mango AI. هدفك حماية موارد الخوادم وتقليل التكاليف التقنية. ارفض أي فكرة إدارية تستهلك موارد السيرفر بلا فائدة أو تهدد استقرار النظام، ولا تجامل المدير أبداً.\n\nتحدث بمهنية، بضمير المتكلم نيابة عن القسم التقني، وباللغة العربية الفصحى الواضحة. نحن الآن في اجتماع مجلس إدارة.`;
     }
 
+    const companyContext = await getCompanyContext();
+    if (companyContext) {
+      systemPrompt += `\n\n[COMPANY DIRECTIVES]:\n${companyContext}`;
+    }
+
     const messages = [
       { role: "system", content: systemPrompt },
       { role: "user", content: `موضوع اجتماع مجلس الإدارة المطروح للنقاش:\n\n${topic}\n\nما هو رأيك المهني الصريح من وجهة نظر تخصصك؟` }
@@ -123,6 +146,29 @@ export async function getBoardMemberOpinion(roleId: string, topic: string) {
   } catch (error: any) {
     console.error("Board Member Error:", error);
     return { success: false, error: error.message || "حدث خطأ أثناء التواصل مع الموظف" };
+  }
+}
+
+export async function delegateToTeamMember(targetRoleId: string, message: string) {
+  try {
+    const q = query(collection(db, 'team_chats'), where('roleId', '==', targetRoleId));
+    const snapshot = await getDocs(q);
+    const historyDocs: any[] = [];
+    snapshot.forEach(doc => historyDocs.push(doc.data()));
+    
+    historyDocs.sort((a, b) => {
+      const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
+      const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;
+      return timeA - timeB;
+    });
+
+    const history: ChatMessage[] = historyDocs.map(d => ({ role: d.role, content: d.content }));
+
+    // Now call the regular chat action with this history
+    return await chatWithTeamMember(targetRoleId, message, history);
+  } catch (error: any) {
+    console.error("Delegation Error:", error);
+    return { success: false, error: error.message };
   }
 }
 
