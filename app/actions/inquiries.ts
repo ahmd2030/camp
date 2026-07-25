@@ -104,7 +104,7 @@ ${draft}
 /**
  * Autonomous Pipeline
  */
-export async function processInquiryAutonomous(inquiryId: string, clientName: string, inquiryText: string): Promise<InquiryResponseResult> {
+export async function processInquiryAutonomous(inquiryId: string, clientName: string, inquiryText: string, clientEmail: string): Promise<InquiryResponseResult> {
   try {
     // 1. First Draft
     let draft = await generateDraft(inquiryText, clientName);

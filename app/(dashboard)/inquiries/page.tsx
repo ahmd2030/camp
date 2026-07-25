@@ -53,7 +53,7 @@ export default function InquiriesPage() {
       // تحديث الحالة إلى جاري المعالجة
       await updateDoc(doc(db, 'inquiries', inquiry.id), { status: 'جاري المعالجة ⏳' });
       
-      const result = await processInquiryAutonomous(inquiry.id, inquiry.clientName, inquiry.inquiryText);
+      const result = await processInquiryAutonomous(inquiry.id, inquiry.clientName, inquiry.inquiryText, inquiry.clientEmail);
       
       if (result.success) {
         toast.success('تمت صياغة الرد واعتماده وإرساله للعميل بنجاح!');
