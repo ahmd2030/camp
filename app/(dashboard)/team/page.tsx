@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Briefcase, TrendingUp, ShieldCheck, XCircle, Send, Loader2, Bot, User, MessageCircle } from 'lucide-react';
+import { Users, Briefcase, TrendingUp, ShieldCheck, XCircle, Send, Loader2, Bot, User, MessageCircle, ServerCog, Presentation } from 'lucide-react';
+import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { chatWithTeamMember, ChatMessage } from '@/app/actions/team';
@@ -12,7 +13,8 @@ const TEAM_MEMBERS = [
   { id: 'cmo', title: 'مدير التسويق (CMO)', icon: <TrendingUp className="w-8 h-8 text-orange-500" />, desc: 'خبير التسويق، النمو، والاستحواذ على العملاء' },
   { id: 'cfo', title: 'المحلل المالي (CFO)', icon: <Briefcase className="w-8 h-8 text-blue-500" />, desc: 'إدارة الميزانية، تحليل الأرباح، وترشيد النفقات' },
   { id: 'cso', title: 'المستشار الاستراتيجي (CSO)', icon: <ShieldCheck className="w-8 h-8 text-green-500" />, desc: 'رؤية طويلة المدى، حماية الأصول، وتوجيه الشركة' },
-  { id: 'cro', title: 'خبير المبيعات (CRO)', icon: <Users className="w-8 h-8 text-purple-500" />, desc: 'إغلاق الصفقات، تدريب المندوبين، وزيادة الإيرادات' }
+  { id: 'cro', title: 'خبير المبيعات (CRO)', icon: <Users className="w-8 h-8 text-purple-500" />, desc: 'إغلاق الصفقات، تدريب المندوبين، وزيادة الإيرادات' },
+  { id: 'coo', title: 'مدير النظام (COO/CTO)', icon: <ServerCog className="w-8 h-8 text-slate-500" />, desc: 'إدارة الخوادم، الأتمتة، وحماية الموارد' }
 ];
 
 export default function TeamPage() {
@@ -98,12 +100,19 @@ export default function TeamPage() {
     <div className="min-h-screen bg-slate-50 text-slate-800 p-8 font-sans -m-8" dir="rtl">
       <Toaster position="top-center" richColors />
       
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-          <Users className="w-8 h-8 text-orange-500" />
-          فريق العمل (The Team)
-        </h1>
-        <p className="text-slate-500 mt-2">مجلس الإدارة المصغر للذكاء الاصطناعي - تواصل مع خبرائك لاتخاذ قرارات حاسمة</p>
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <Users className="w-8 h-8 text-orange-500" />
+            فريق العمل (The Team)
+          </h1>
+          <p className="text-slate-500 mt-2">مجلس الإدارة المصغر للذكاء الاصطناعي - تواصل مع خبرائك لاتخاذ قرارات حاسمة</p>
+        </div>
+        
+        <Link href="/boardroom" className="inline-flex items-center gap-2 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-black text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-md hover:shadow-lg">
+          <Presentation className="w-5 h-5" />
+          عقد اجتماع مجلس إدارة
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

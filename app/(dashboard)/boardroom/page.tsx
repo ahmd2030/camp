@@ -1,0 +1,248 @@
+"use client";
+
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Presentation, Users, Briefcase, TrendingUp, ShieldCheck, ServerCog, Send, CheckCircle2, Loader2, Bot, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+import { getBoardMemberOpinion, saveBoardMeeting } from '@/app/actions/team';
+import { toast, Toaster } from 'sonner';
+
+const BOARD_MEMBERS = [
+  { id: 'cmo', title: 'مدير التسويق (CMO)', icon: <TrendingUp className="w-6 h-6 text-orange-500" /> },
+  { id: 'cfo', title: 'المحلل المالي (CFO)', icon: <Briefcase className="w-6 h-6 text-blue-500" /> },
+  { id: 'cso', title: 'المستشار الاستراتيجي (CSO)', icon: <ShieldCheck className="w-6 h-6 text-green-500" /> },
+  { id: 'coo', title: 'مدير النظام (COO/CTO)', icon: <ServerCog className="w-6 h-6 text-slate-500" /> }
+];
+
+export default function BoardroomPage() {
+  const [topic, setTopic] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set(BOARD_MEMBERS.map(m => m.id)));
+  const [meetingState, setMeetingState] = useState<'IDLE' | 'RUNNING' | 'DONE'>('IDLE');
+  
+  // Track status per member: 'WAITING' | 'THINKING' | 'DONE' | 'ERROR'
+  const [memberStatus, setMemberStatus] = useState<Record<string, { status: string, response?: string }>>({});
+
+  const toggleMember = (id: string) => {
+    if (meetingState !== 'IDLE') return;
+    const newSelection = new Set(selectedMembers);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedMembers(newSelection);
+  };
+
+  const startMeeting = async () => {
+    if (!topic.trim()) {
+      toast.error('الرجاء إدخال موضوع النقاش');
+      return;
+    }
+    if (selectedMembers.size === 0) {
+      toast.error('الرجاء اختيار موظف واحد على الأقل');
+      return;
+    }
+
+    setMeetingState('RUNNING');
+    const initialStatus: Record<string, { status: string }> = {};
+    selectedMembers.forEach(id => {
+      initialStatus[id] = { status: 'THINKING' };
+    });
+    setMemberStatus(initialStatus);
+
+    const responses: Record<string, string> = {};
+
+    // Parallel execution on client-side to avoid server timeout
+    const promises = Array.from(selectedMembers).map(async (roleId) => {
+      try {
+        const result = await getBoardMemberOpinion(roleId, topic);
+        if (result.success && result.response) {
+          responses[roleId] = result.response;
+          setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'DONE', response: result.response } }));
+        } else {
+          setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'ERROR', response: result.error || 'حدث خطأ' } }));
+        }
+      } catch (err) {
+        setMemberStatus(prev => ({ ...prev, [roleId]: { status: 'ERROR', response: 'فشل الاتصال' } }));
+      }
+    });
+
+    await Promise.all(promises);
+
+    // Meeting Finished, save to DB
+    if (Object.keys(responses).length > 0) {
+      await saveBoardMeeting(topic, responses);
+      toast.success('اكتمل اجتماع مجلس الإدارة وتم حفظ النتائج');
+    }
+    
+    setMeetingState('DONE');
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-8 font-sans -m-8" dir="rtl">
+      <Toaster position="top-center" richColors />
+      
+      <div className="mb-8 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/team" className="p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors">
+            <ArrowRight className="w-6 h-6 text-slate-600" />
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+              <Presentation className="w-8 h-8 text-orange-500" />
+              غرفة مجلس الإدارة (The Boardroom)
+            </h1>
+            <p className="text-slate-500 mt-2">اتخذ قرارات استراتيجية مصيرية بالتشاور مع كبار الخبراء في نفس اللحظة</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Meeting Setup Area */}
+        <div className="lg:col-span-1 space-y-6">
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100"
+          >
+            <h3 className="text-xl font-bold text-slate-800 mb-4">موضوع النقاش أو القرار</h3>
+            <textarea
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              disabled={meetingState === 'RUNNING'}
+              placeholder="مثال: أريد إطلاق حملة تسويقية بنصف الميزانية الحالية، وتوظيف 5 مسوقين جدد، واستخدام سيرفرات إضافية لتسريع السحب."
+              className="w-full h-40 bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all resize-none mb-6 shadow-inner disabled:opacity-60"
+            />
+
+            <h3 className="text-lg font-bold text-slate-800 mb-4">الاستدعاء الانتقائي (من سيحضر؟)</h3>
+            <div className="space-y-3 mb-8">
+              {BOARD_MEMBERS.map(member => (
+                <div 
+                  key={member.id}
+                  onClick={() => toggleMember(member.id)}
+                  className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all border ${selectedMembers.has(member.id) ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'} ${meetingState === 'RUNNING' ? 'opacity-60 pointer-events-none' : ''}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                      {member.icon}
+                    </div>
+                    <span className={`font-semibold ${selectedMembers.has(member.id) ? 'text-orange-700' : 'text-slate-600'}`}>
+                      {member.title}
+                    </span>
+                  </div>
+                  <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center ${selectedMembers.has(member.id) ? 'bg-orange-500 border-orange-500 text-white' : 'border-slate-300'}`}>
+                    {selectedMembers.has(member.id) && <CheckCircle2 className="w-4 h-4" />}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={startMeeting}
+              disabled={meetingState === 'RUNNING' || selectedMembers.size === 0 || !topic.trim()}
+              className="w-full bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-black text-white px-6 py-4 rounded-2xl text-lg font-bold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {meetingState === 'RUNNING' ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  الاجتماع منعقد...
+                </>
+              ) : (
+                <>
+                  <Users className="w-6 h-6" />
+                  بدء الاجتماع
+                </>
+              )}
+            </button>
+          </motion.div>
+        </div>
+
+        {/* Meeting Results Area */}
+        <div className="lg:col-span-2 space-y-6">
+          <AnimatePresence>
+            {meetingState !== 'IDLE' && Array.from(selectedMembers).map((roleId, index) => {
+              const member = BOARD_MEMBERS.find(m => m.id === roleId);
+              const statusData = memberStatus[roleId];
+              
+              if (!member || !statusData) return null;
+
+              return (
+                <motion.div
+                  key={roleId}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative overflow-hidden"
+                >
+                  {/* Progress / Status Bar */}
+                  {statusData.status === 'THINKING' && (
+                    <div className="absolute top-0 left-0 w-full h-1 bg-slate-100 overflow-hidden">
+                      <div className="h-full bg-orange-400 w-1/3 animate-[slide_1.5s_ease-in-out_infinite]" />
+                    </div>
+                  )}
+
+                  <div className="flex gap-6">
+                    <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center shrink-0">
+                      {member.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-lg font-bold text-slate-800">{member.title}</h3>
+                        {statusData.status === 'THINKING' && (
+                          <span className="text-sm font-semibold text-orange-500 animate-pulse flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            يحلل المعطيات...
+                          </span>
+                        )}
+                        {statusData.status === 'DONE' && (
+                          <span className="text-sm font-bold text-green-500 bg-green-50 px-3 py-1 rounded-lg border border-green-100">
+                            تم الرد
+                          </span>
+                        )}
+                        {statusData.status === 'ERROR' && (
+                          <span className="text-sm font-bold text-red-500 bg-red-50 px-3 py-1 rounded-lg border border-red-100">
+                            فشل الرد
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="mt-4">
+                        {statusData.status === 'THINKING' ? (
+                          <div className="space-y-3">
+                            <div className="h-2 bg-slate-100 rounded-full w-3/4 animate-pulse" />
+                            <div className="h-2 bg-slate-100 rounded-full w-full animate-pulse" />
+                            <div className="h-2 bg-slate-100 rounded-full w-5/6 animate-pulse" />
+                          </div>
+                        ) : (
+                          <div className="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm p-4 bg-slate-50 rounded-xl border border-slate-100">
+                            {statusData.response}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+
+          {meetingState === 'IDLE' && (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-70 min-h-[400px] border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
+              <Presentation className="w-20 h-20 mb-4 text-slate-300" />
+              <p className="text-xl font-medium text-slate-500">غرفة الاجتماعات فارغة</p>
+              <p className="text-sm mt-2 max-w-md text-center">أدخل موضوع النقاش، حدد أعضاء مجلس الإدارة، واضغط على "بدء الاجتماع" للحصول على تقييماتهم بشكل متزامن.</p>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes slide {
+          0% { transform: translateX(300%); }
+          100% { transform: translateX(-100%); }
+        }
+      `}} />
+    </div>
+  );
+}
