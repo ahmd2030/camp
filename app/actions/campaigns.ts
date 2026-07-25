@@ -21,7 +21,7 @@ export async function processCampaignLead(lead: any): Promise<{ success: boolean
     // 2. Send Email
     // Note: sendTestEmail takes 'message' and currently hardcodes 'to' for testing.
     // In production, you would pass lead.businessName and a dynamic 'to' address.
-    const emailResult = await sendTestEmail(pitch);
+    const emailResult = await sendTestEmail(pitch, lead.email || "test@example.com", lead.id);
     
     if (!emailResult.success) {
       return { success: false, message: 'فشل إرسال البريد الإلكتروني.' };
@@ -39,7 +39,8 @@ export async function processCampaignLead(lead: any): Promise<{ success: boolean
       followUpStage: 0,
       lastContactedAt: Date.now(),
       hasReplied: false,
-      hasBooked: false
+      hasBooked: false,
+      opened: false
     });
 
     return { success: true, message: 'تم إرسال الرسالة بنجاح' };

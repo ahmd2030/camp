@@ -28,6 +28,7 @@ import { processCampaignLead } from '@/app/actions/campaigns';
 export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [totalSent, setTotalSent] = useState(0);
+  const [openCount, setOpenCount] = useState(0);
   const [retargetedCount, setRetargetedCount] = useState(0);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [meetingsCount, setMeetingsCount] = useState(0);
@@ -53,12 +54,18 @@ export default function DashboardHome() {
     const unsubscribeTotal = onSnapshot(collection(db, 'sent_leads'), (snapshot) => {
       setTotalSent(snapshot.size);
       let retargeted = 0;
+      let opened = 0;
       snapshot.forEach(doc => {
-        if (doc.data().followUpStage && doc.data().followUpStage > 1) {
+        const data = doc.data();
+        if (data.followUpStage && data.followUpStage > 1) {
           retargeted++;
+        }
+        if (data.opened) {
+          opened++;
         }
       });
       setRetargetedCount(retargeted);
+      setOpenCount(opened);
     });
 
     const qMeetings = query(
@@ -288,13 +295,16 @@ export default function DashboardHome() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-center items-center"
+          className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-center items-center group"
         >
           <div className="p-3 bg-orange-50 rounded-xl mb-3">
             <Eye className="w-6 h-6 text-orange-500" />
           </div>
           <p className="text-slate-500 text-sm font-medium mb-1">معدل الفتح</p>
-          <span className="text-xs font-bold px-3 py-1 bg-slate-100 rounded-full text-slate-600">قريباً - Coming Soon</span>
+          <h3 className="text-3xl font-bold mt-1 text-slate-800">
+            {totalSent > 0 ? Math.round((openCount / totalSent) * 100) : 0}%
+          </h3>
+          <div className="absolute bottom-0 left-0 h-1 bg-orange-500 w-full transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </motion.div>
 
         <motion.div 
