@@ -340,7 +340,23 @@ export default function TeamPage() {
                       </div>
                       <div className="flex flex-col gap-2 max-w-[80%]">
                         <div className={`rounded-2xl p-4 whitespace-pre-wrap leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-orange-500 text-white rounded-tl-sm' : 'bg-white text-slate-700 border border-slate-100 rounded-tr-sm'}`}>
-                          {msg.content}
+                          {(() => {
+                            if (msg.role === 'user' && msg.content.includes('[FILE CONTENT:')) {
+                              const match = msg.content.match(/\[FILE CONTENT: (.*?)\][\s\S]*?\[\/FILE CONTENT\]\n*/);
+                              if (match) {
+                                return (
+                                  <>
+                                    <div className="flex items-center gap-2 mb-2 bg-orange-600/50 text-white px-3 py-1.5 rounded-lg text-xs font-medium w-fit">
+                                      <Paperclip className="w-3.5 h-3.5" />
+                                      <span>تم قراءة الملف: {match[1]}</span>
+                                    </div>
+                                    {msg.content.replace(match[0], '')}
+                                  </>
+                                );
+                              }
+                            }
+                            return msg.content;
+                          })()}
                         </div>
                         {msg.role === 'assistant' && (
                           <button 
