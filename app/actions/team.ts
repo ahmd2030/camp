@@ -32,6 +32,27 @@ async function getCompanyContext(): Promise<string> {
   return '';
 }
 
+async function recordApiUsage(roleId: string, usage: any) {
+  if (!usage) return;
+  try {
+    const prompt_tokens = usage.prompt_tokens || 0;
+    const completion_tokens = usage.completion_tokens || 0;
+    
+    // GPT-4o-mini pricing: $0.150 / 1M input tokens, $0.600 / 1M output tokens
+    const cost = (prompt_tokens / 1_000_000) * 0.150 + (completion_tokens / 1_000_000) * 0.600;
+
+    await addDoc(collection(db, 'api_usage'), {
+      roleId,
+      prompt_tokens,
+      completion_tokens,
+      cost,
+      timestamp: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Failed to record API usage:", error);
+  }
+}
+
 export async function chatWithTeamMember(roleId: string, message: string, history: ChatMessage[] = []) {
   try {
     const roleTitle = ROLES[roleId] || 'مستشار خبير';
@@ -99,6 +120,11 @@ export async function chatWithTeamMember(roleId: string, message: string, histor
 
     const data = await response.json();
     const responseMessage = data.choices?.[0]?.message;
+    
+    // Capture cost
+    if (data.usage) {
+      await recordApiUsage(roleId, data.usage);
+    }
     
     if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
       const toolCall = responseMessage.tool_calls[0];
@@ -189,6 +215,11 @@ export async function getBoardMemberOpinion(roleId: string, topic: string) {
 
     const data = await response.json();
     const responseMessage = data.choices?.[0]?.message;
+    
+    // Capture cost
+    if (data.usage) {
+      await recordApiUsage(roleId, data.usage);
+    }
     
     if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
       const toolCall = responseMessage.tool_calls[0];
@@ -305,6 +336,12 @@ ${resultsText}`;
     if (!response.ok) throw new Error(`OpenRouter Error: ${response.status}`);
     
     const data = await response.json();
+    
+    // Capture cost
+    if (data.usage) {
+      await recordApiUsage(roleId, data.usage);
+    }
+
     const aiResponseText = data.choices?.[0]?.message?.content || 'عذراً، واجهت مشكلة بعد البحث.';
 
     // 4. Save to Firestore (only if not boardroom)

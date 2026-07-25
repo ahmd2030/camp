@@ -1,208 +1,249 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { DollarSign, Zap, Activity, Clock, ShieldCheck, TrendingUp, Users, ServerCog, Briefcase, RefreshCcw, Bot } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { BarChart3, TrendingUp, Users, Target, Mail, Handshake, Loader2, ArrowDown } from 'lucide-react';
-import { 
-  Funnel, 
-  FunnelChart, 
-  Tooltip as RechartsTooltip, 
-  LabelList, 
-  ResponsiveContainer,
-  Cell
-} from 'recharts';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+
+const ROLES: Record<string, { title: string, color: string, icon: any }> = {
+  'cmo': { title: 'التسويق (CMO)', color: '#f97316', icon: <TrendingUp className="w-4 h-4" /> }, // orange-500
+  'cfo': { title: 'المالية (CFO)', color: '#3b82f6', icon: <Briefcase className="w-4 h-4" /> }, // blue-500
+  'cso': { title: 'الاستراتيجية (CSO)', color: '#22c55e', icon: <ShieldCheck className="w-4 h-4" /> }, // green-500
+  'cro': { title: 'المبيعات (CRO)', color: '#a855f7', icon: <Users className="w-4 h-4" /> }, // purple-500
+  'coo': { title: 'النظام (COO)', color: '#64748b', icon: <ServerCog className="w-4 h-4" /> } // slate-500
+};
+
+interface UsageRecord {
+  id: string;
+  roleId: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost: number;
+  timestamp: any;
+}
 
 export default function AnalyticsPage() {
-  const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState({
-    totalLeads: 0,
-    sentLeads: 0,
-    inquiries: 0,
-    meetings: 0
-  });
+  const [usageData, setUsageData] = useState<UsageRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const q = query(collection(db, 'api_usage'), orderBy('timestamp', 'desc'), limit(100));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UsageRecord));
+      setUsageData(data);
+    } catch (error) {
+      console.error("Failed to fetch analytics:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let loadedCount = 0;
-    const checkLoaded = () => {
-      loadedCount++;
-      if (loadedCount === 4) setLoading(false);
-    };
-
-    const unsubLeads = onSnapshot(collection(db, 'leads'), (snapshot) => {
-      setMetrics(prev => ({ ...prev, totalLeads: snapshot.size }));
-      checkLoaded();
-    });
-    
-    const unsubSent = onSnapshot(collection(db, 'sent_leads'), (snapshot) => {
-      setMetrics(prev => ({ ...prev, sentLeads: snapshot.size }));
-      checkLoaded();
-    });
-
-    const unsubInquiries = onSnapshot(collection(db, 'inquiries'), (snapshot) => {
-      setMetrics(prev => ({ ...prev, inquiries: snapshot.size }));
-      checkLoaded();
-    });
-
-    const unsubMeetings = onSnapshot(collection(db, 'meetings'), (snapshot) => {
-      setMetrics(prev => ({ ...prev, meetings: snapshot.size }));
-      checkLoaded();
-    });
-
-    return () => {
-      unsubLeads();
-      unsubSent();
-      unsubInquiries();
-      unsubMeetings();
-    };
+    fetchData();
   }, []);
 
-  const funnelData = [
-    { name: 'إجمالي المستهدفين', value: metrics.totalLeads, fill: '#f1f5f9', stroke: '#cbd5e1' }, // slate-100
-    { name: 'المراسلات المرسلة', value: metrics.sentLeads, fill: '#fed7aa', stroke: '#fdba74' }, // orange-200
-    { name: 'الاستفسارات الواردة', value: metrics.inquiries, fill: '#fb923c', stroke: '#f97316' }, // orange-400
-    { name: 'الاجتماعات المجدولة', value: metrics.meetings, fill: '#ea580c', stroke: '#c2410c' } // orange-600
-  ];
+  // Aggregations
+  const totalCost = usageData.reduce((acc, curr) => acc + curr.cost, 0);
+  const totalPromptTokens = usageData.reduce((acc, curr) => acc + curr.prompt_tokens, 0);
+  const totalCompletionTokens = usageData.reduce((acc, curr) => acc + curr.completion_tokens, 0);
+  
+  // Cost per Role for Pie Chart
+  const costPerRoleMap: Record<string, number> = {};
+  usageData.forEach(record => {
+    const role = record.roleId || 'unknown';
+    costPerRoleMap[role] = (costPerRoleMap[role] || 0) + record.cost;
+  });
 
-  // Calculate Conversion Rates
-  const sentRate = metrics.totalLeads > 0 ? Math.round((metrics.sentLeads / metrics.totalLeads) * 100) : 0;
-  const inquiryRate = metrics.sentLeads > 0 ? Math.round((metrics.inquiries / metrics.sentLeads) * 100) : 0;
-  const meetingRate = metrics.inquiries > 0 ? Math.round((metrics.meetings / metrics.inquiries) * 100) : 0;
-  const totalConversion = metrics.totalLeads > 0 ? ((metrics.meetings / metrics.totalLeads) * 100).toFixed(1) : 0;
+  const pieData = Object.keys(costPerRoleMap).map(role => ({
+    name: ROLES[role]?.title || role,
+    value: costPerRoleMap[role],
+    color: ROLES[role]?.color || '#94a3b8'
+  })).sort((a, b) => b.value - a.value);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center -m-8">
-        <Loader2 className="w-12 h-12 animate-spin text-orange-500" />
-      </div>
-    );
-  }
+  const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 p-8 font-sans -m-8" dir="rtl">
-      {/* Header */}
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3 mb-2">
-          <BarChart3 className="w-8 h-8 text-orange-500" />
-          لوحة التحليلات المتقدمة
-        </h1>
-        <p className="text-slate-500">نظرة شاملة على قمع المبيعات ومعدلات التحويل (Conversion Funnel)</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
+            <Activity className="w-8 h-8 text-indigo-600" />
+            الرادار المالي
+          </h1>
+          <p className="text-slate-500 mt-2 text-sm font-medium">مراقبة لحظية لاستهلاك الذكاء الاصطناعي والتكاليف التشغيلية (GPT-4o-mini)</p>
+        </div>
         
-        {/* Funnel Chart Section */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-orange-500" />
-              قمع المبيعات (Sales Funnel)
-            </h2>
-            <div className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl text-sm font-bold border border-orange-100">
-              معدل التحويل الكلي: {totalConversion}%
-            </div>
-          </div>
-
-          <div className="h-[400px] w-full" dir="ltr">
-            <ResponsiveContainer width="100%" height="100%">
-              <FunnelChart>
-                <RechartsTooltip 
-                  formatter={(value) => [`${value} عميل`, 'العدد']}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Funnel
-                  dataKey="value"
-                  data={funnelData}
-                  isAnimationActive
-                >
-                  <LabelList 
-                    position="right" 
-                    fill="#475569" 
-                    stroke="none" 
-                    dataKey="name" 
-                    className="font-bold text-sm"
-                  />
-                  {funnelData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} stroke={entry.stroke} strokeWidth={2} />
-                  ))}
-                </Funnel>
-              </FunnelChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Conversion Metrics Sidebar */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
-          <h2 className="text-xl font-bold text-slate-800 mb-2">مراحل التحويل</h2>
-          
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2 text-slate-600">
-                <Users className="w-5 h-5 text-slate-400" />
-                <span className="font-semibold">المستهدفين</span>
-              </div>
-              <span className="text-2xl font-bold text-slate-800">{metrics.totalLeads}</span>
-            </div>
-            <p className="text-xs text-slate-400">إجمالي العملاء المجموعين</p>
-          </div>
-
-          <div className="flex justify-center -my-2 relative z-10">
-            <div className="bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-bold border border-orange-100 shadow-sm flex items-center gap-1">
-              <ArrowDown className="w-3 h-3" />
-              {sentRate}% وصول
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2 text-slate-600">
-                <Target className="w-5 h-5 text-orange-400" />
-                <span className="font-semibold">تمت المراسلة</span>
-              </div>
-              <span className="text-2xl font-bold text-slate-800">{metrics.sentLeads}</span>
-            </div>
-            <p className="text-xs text-slate-400">حملات أرسلت بنجاح</p>
-          </div>
-
-          <div className="flex justify-center -my-2 relative z-10">
-            <div className="bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-bold border border-orange-100 shadow-sm flex items-center gap-1">
-              <ArrowDown className="w-3 h-3" />
-              {inquiryRate}% استجابة
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2 text-slate-600">
-                <Mail className="w-5 h-5 text-orange-500" />
-                <span className="font-semibold">استفسارات</span>
-              </div>
-              <span className="text-2xl font-bold text-slate-800">{metrics.inquiries}</span>
-            </div>
-            <p className="text-xs text-slate-400">ردود وعمليات تفاعل</p>
-          </div>
-
-          <div className="flex justify-center -my-2 relative z-10">
-            <div className="bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-xs font-bold border border-orange-100 shadow-sm flex items-center gap-1">
-              <ArrowDown className="w-3 h-3" />
-              {meetingRate}% حجز
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl p-6 shadow-md border border-orange-400 relative overflow-hidden">
-            <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2 text-white/90">
-                <Handshake className="w-5 h-5" />
-                <span className="font-semibold">اجتماعات</span>
-              </div>
-              <span className="text-2xl font-bold text-white">{metrics.meetings}</span>
-            </div>
-            <p className="text-xs text-white/70">صفقات واجتماعات مجدولة</p>
-            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-          </div>
-        </div>
-
+        <button 
+          onClick={fetchData} 
+          disabled={isLoading}
+          className="flex items-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl font-bold shadow-sm transition-all disabled:opacity-50"
+        >
+          <RefreshCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          تحديث البيانات
+        </button>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-60"></div>
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+              <p className="text-sm font-bold text-slate-500 mb-1">إجمالي التكلفة (Total Spend)</p>
+              <h3 className="text-3xl font-black text-slate-800">${totalCost.toFixed(5)}</h3>
+            </div>
+            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center border border-indigo-100">
+              <DollarSign className="w-6 h-6 text-indigo-600" />
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-60"></div>
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+              <p className="text-sm font-bold text-slate-500 mb-1">توكنز الإدخال (Prompt)</p>
+              <h3 className="text-3xl font-black text-slate-800">{formatNumber(totalPromptTokens)}</h3>
+            </div>
+            <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center border border-emerald-100">
+              <Zap className="w-6 h-6 text-emerald-600" />
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-60"></div>
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+              <p className="text-sm font-bold text-slate-500 mb-1">توكنز الإخراج (Completion)</p>
+              <h3 className="text-3xl font-black text-slate-800">{formatNumber(totalCompletionTokens)}</h3>
+            </div>
+            <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center border border-orange-100">
+              <Zap className="w-6 h-6 text-orange-600" />
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Cost Per Agent */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }} className="lg:col-span-1 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <Users className="w-5 h-5 text-indigo-500" />
+            التكلفة لكل قسم
+          </h2>
+          
+          <div className="h-[250px] w-full">
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: any) => [`$${Number(value).toFixed(5)}`, 'التكلفة']}
+                    contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm font-bold">
+                لا توجد بيانات استهلاك كافية
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3 mt-4">
+            {pieData.map((data, idx) => (
+              <div key={idx} className="flex justify-between items-center text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: data.color }}></div>
+                  <span className="font-semibold text-slate-700">{data.name}</span>
+                </div>
+                <span className="font-bold text-slate-900">${data.value.toFixed(5)}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Recent Transactions Table */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5 }} className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-indigo-500" />
+              سجل العمليات الأخيرة
+            </h2>
+            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">أحدث العمليات</span>
+          </div>
+          
+          <div className="flex-1 overflow-auto max-h-[400px]">
+            <table className="w-full text-right text-sm">
+              <thead className="bg-slate-50 text-slate-500 sticky top-0 shadow-sm z-10">
+                <tr>
+                  <th className="py-4 px-6 font-bold">القسم (Agent)</th>
+                  <th className="py-4 px-6 font-bold">الزمن</th>
+                  <th className="py-4 px-6 font-bold">الإدخال</th>
+                  <th className="py-4 px-6 font-bold">الإخراج</th>
+                  <th className="py-4 px-6 font-bold rounded-tl-xl">التكلفة</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={5} className="py-4 px-6">
+                        <div className="h-4 bg-slate-100 rounded animate-pulse w-full"></div>
+                      </td>
+                    </tr>
+                  ))
+                ) : usageData.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-slate-400 font-bold">
+                      <Clock className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+                      لا يوجد أي عمليات حتى الآن
+                    </td>
+                  </tr>
+                ) : (
+                  usageData.map((record) => (
+                    <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm`} style={{ backgroundColor: ROLES[record.roleId]?.color || '#94a3b8' }}>
+                            {ROLES[record.roleId]?.icon || <Bot className="w-4 h-4" />}
+                          </div>
+                          <span className="font-bold text-slate-700">{ROLES[record.roleId]?.title || record.roleId}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-6 text-slate-500 font-medium">
+                        {record.timestamp ? new Date(record.timestamp.toDate()).toLocaleString('ar-SA') : 'الآن'}
+                      </td>
+                      <td className="py-3 px-6 text-slate-600 font-medium">{formatNumber(record.prompt_tokens)}</td>
+                      <td className="py-3 px-6 text-slate-600 font-medium">{formatNumber(record.completion_tokens)}</td>
+                      <td className="py-3 px-6 font-black text-slate-800">${record.cost.toFixed(5)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      </div>
+
     </div>
   );
 }
