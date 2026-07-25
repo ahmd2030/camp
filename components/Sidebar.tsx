@@ -12,7 +12,9 @@ import {
   LogOut,
   Briefcase,
   FileText,
-  Mail
+  Mail,
+  Rocket,
+  BarChart3
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -23,6 +25,8 @@ export default function Sidebar() {
 
   const navItems = [
     { name: 'لوحة القيادة', href: '/', icon: LayoutDashboard },
+    { name: 'التحليلات', href: '/analytics', icon: BarChart3 },
+    { name: 'الحملات الجماعية', href: '/campaigns', icon: Rocket },
     { name: 'رادار الصيد', href: '/scraper', icon: LayoutDashboard },
     { name: 'استفسارات العملاء', href: '/inquiries', icon: Mail },
     { name: 'المجالات', href: '/niches', icon: Briefcase },
