@@ -7,7 +7,7 @@ const HALAL_BLACKLIST = [
   'ملهى', 'بار', 'خمارة', 'مرقص', 'ديسكو', 'نادي ليلي', 'مشروبات روحية'
 ];
 
-export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PENDING' | 'READY_TO_SEND' = 'PENDING') {
+export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PENDING' | 'READY_TO_SEND' = 'PENDING', limit: number = 20) {
   try {
     const apiKey = process.env.SERPAPI_API_KEY;
     if (!apiKey) {
@@ -45,7 +45,7 @@ export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PE
 
     // Filter and prepare leads
     for (const place of results) {
-      if (processedCount >= 5) break; // قللنا العدد إلى 5 لتجنب الـ Timeout في Vercel
+      if (processedCount >= limit) break;
 
       const businessName = place.title || 'بدون اسم';
       const category = place.type || '';
@@ -192,14 +192,9 @@ Mango AI`;
   }
 }
 
-export async function automateScraping(searchQuery: string) {
-  // Fire and forget (or fast await since we limit to 5 leads)
-  // We await it here so that Vercel doesn't kill it prematurely if this is called from client directly,
-  // but for the UI, we can just return success immediately and not wait for the client.
-  // Actually, NextJS server actions must return a promise if we want the client to finish. 
-  // We will let the client handle it async or just await it.
+export async function automateScraping(searchQuery: string, limit: number = 20) {
   try {
-    const result = await scrapeGooglePlaces(searchQuery, 'READY_TO_SEND');
+    const result = await scrapeGooglePlaces(searchQuery, 'READY_TO_SEND', limit);
     return result;
   } catch (e) {
     console.error("Failed automateScraping", e);

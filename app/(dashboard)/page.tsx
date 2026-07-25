@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send,
   Target,
@@ -9,10 +9,21 @@ import {
   Handshake,
   Clock,
   Loader2,
-  CalendarDays
+  CalendarDays,
+  PlaneTakeoff,
+  ShieldCheck,
+  Search,
+  Rocket
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, limit, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, where, updateDoc, doc } from 'firebase/firestore';
+import { toast, Toaster } from 'sonner';
+
+// Actions for Autopilot
+import { getAndFillNiches } from '@/app/actions/analyst';
+import { analyzeNichesPortfolio } from '@/app/actions/masterAgent';
+import { automateScraping } from '@/app/actions/scraper';
+import { processCampaignLead } from '@/app/actions/campaigns';
 
 export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
@@ -22,30 +33,34 @@ export default function DashboardHome() {
   const [meetingsCount, setMeetingsCount] = useState(0);
   const [recentMeetings, setRecentMeetings] = useState<any[]>([]);
 
+  // Autopilot State
+  const [autopilotState, setAutopilotState] = useState<'IDLE' | 'HUNTING' | 'FILTERING' | 'SCRAPING' | 'SENDING' | 'DONE' | 'ERROR'>('IDLE');
+  const [autopilotMessage, setAutopilotMessage] = useState('جاهز للانطلاق');
+  const [autopilotProgress, setAutopilotProgress] = useState(0);
+
   useEffect(() => {
-    // 1. Fetch total sent and recent activity from sent_leads
+    // Fetch dashboard stats
     const q = query(collection(db, 'sent_leads'), orderBy('sentAt', 'desc'), limit(5));
-    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const recent: any[] = [];
       snapshot.forEach(doc => {
-        const data = doc.data();
-        recent.push({ id: doc.id, ...data });
+        recent.push({ id: doc.id, ...doc.data() });
       });
       setRecentActivity(recent);
       setLoading(false);
-    }, (error) => {
-      console.warn("Error fetching recent activity", error);
-      setLoading(false);
     });
 
-    // 2. Fetch total count
     const unsubscribeTotal = onSnapshot(collection(db, 'sent_leads'), (snapshot) => {
       setTotalSent(snapshot.size);
-      setRetargetedCount(0);
+      let retargeted = 0;
+      snapshot.forEach(doc => {
+        if (doc.data().followUpStage && doc.data().followUpStage > 1) {
+          retargeted++;
+        }
+      });
+      setRetargetedCount(retargeted);
     });
 
-    // 3. Fetch meetings count and recent meetings
     const qMeetings = query(
       collection(db, 'meetings'),
       where('status', '==', 'scheduled'),
@@ -53,7 +68,6 @@ export default function DashboardHome() {
       limit(5)
     );
     const unsubscribeMeetings = onSnapshot(qMeetings, (snapshot) => {
-      setMeetingsCount(snapshot.size); // Just showing the count of recent or all scheduled depending on query. For total count, normally we'd do a separate query. Since it's limited to 5, we'll do a separate query for count.
       const fetched: any[] = [];
       snapshot.forEach(doc => {
         fetched.push({ id: doc.id, ...doc.data() });
@@ -74,21 +88,87 @@ export default function DashboardHome() {
     };
   }, []);
 
+  const runAutopilot = async () => {
+    if (autopilotState !== 'IDLE' && autopilotState !== 'DONE' && autopilotState !== 'ERROR') return;
+    
+    setAutopilotState('HUNTING');
+    setAutopilotMessage('جاري الصيد والبحث عن مجال جديد... ⏳');
+    setAutopilotProgress(10);
+
+    try {
+      // 1. HUNTING
+      const nichesResult = await getAndFillNiches();
+      if (!nichesResult.success || !nichesResult.niches || nichesResult.niches.length === 0) {
+        throw new Error('فشل العثور على مجالات جديدة.');
+      }
+      // Pick the first one
+      const targetNiche = nichesResult.niches[0];
+      setAutopilotProgress(30);
+
+      // 2. FILTERING
+      setAutopilotState('FILTERING');
+      setAutopilotMessage(`جاري الفلترة الشرعية لمجال: ${targetNiche.title}... 🛡️`);
+      const authResult = await analyzeNichesPortfolio([targetNiche]);
+      
+      if (!authResult.success) {
+        throw new Error('فشل في فحص الأمان الشرعي.');
+      }
+      if (authResult.rejectedCount > 0) {
+        throw new Error(`تم إقصاء المجال (${targetNiche.title}) لعدم توافقه مع الضوابط الشرعية.`);
+      }
+      setAutopilotProgress(50);
+
+      // 3. SCRAPING
+      setAutopilotState('SCRAPING');
+      setAutopilotMessage(`جاري جلب 5 عملاء في مجال: ${targetNiche.title}... 🎣`);
+      const scrapeResult = await automateScraping(targetNiche.searchQuery, 5);
+      
+      if (!scrapeResult.success || !scrapeResult.leads || scrapeResult.leads.length === 0) {
+        throw new Error('لم نتمكن من جلب عملاء لهذا المجال.');
+      }
+      setAutopilotProgress(75);
+
+      // 4. SENDING
+      setAutopilotState('SENDING');
+      const leadsToProcess = scrapeResult.leads;
+      let sentCount = 0;
+      
+      for (let i = 0; i < leadsToProcess.length; i++) {
+        const lead = leadsToProcess[i];
+        setAutopilotMessage(`جاري الإرسال (${i + 1}/${leadsToProcess.length}) للعميل: ${lead.businessName}... 🚀`);
+        
+        try {
+          const res = await processCampaignLead(lead);
+          if (res.success) {
+            await updateDoc(doc(db, 'leads', lead.id), { status: 'SENT' });
+            sentCount++;
+          }
+        } catch (err) {
+          console.warn('Failed to send to', lead.businessName);
+        }
+        
+        // 2 seconds rate limit
+        if (i < leadsToProcess.length - 1) {
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
+
+      setAutopilotProgress(100);
+      setAutopilotState('DONE');
+      setAutopilotMessage(`تم إرسال ${sentCount} رسائل تسويقية بنجاح للمجال المعتمد! 🎉`);
+      toast.success('اكتملت دورة الطيار الآلي بنجاح!');
+
+    } catch (e: any) {
+      setAutopilotState('ERROR');
+      setAutopilotMessage(e.message || 'حدث خطأ غير متوقع في الطيار الآلي.');
+      toast.error('توقف الطيار الآلي');
+    }
+  };
+
   const timeAgo = (dateVal: any) => {
     if (!dateVal) return 'غير معروف';
-    let date;
-    if (typeof dateVal === 'string') {
-      date = new Date(dateVal);
-    } else if (dateVal?.toDate) {
-      date = dateVal.toDate();
-    } else if (dateVal instanceof Date) {
-      date = dateVal;
-    } else {
-      date = new Date(dateVal);
-    }
-    
+    let date = dateVal?.toDate ? dateVal.toDate() : new Date(dateVal);
     if (isNaN(date.getTime())) return 'غير معروف';
-
     const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
     
     let interval = seconds / 31536000;
@@ -114,21 +194,56 @@ export default function DashboardHome() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 p-8 font-sans -m-8" dir="rtl">
-      {/* Hero Banner */}
+      <Toaster position="top-center" richColors />
+      
+      {/* Hero Banner with Autopilot */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 p-10 mb-8 shadow-sm"
+        className="relative overflow-hidden rounded-3xl bg-white border-2 border-orange-100 p-8 mb-8 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-8"
       >
-        <div className="relative z-10">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">
-            أهلاً بك في مركز قيادة Mango AI
+        <div className="relative z-10 flex-1">
+          <h1 className="text-3xl md:text-4xl font-bold mb-3 text-slate-900">
+            الطيار الآلي الموحد (Unified Autopilot)
           </h1>
-          <p className="text-xl text-white/90">نظرة عامة على أداء حملاتك التسويقية</p>
+          <p className="text-lg text-slate-600 mb-6">دع الذكاء الاصطناعي يبحث، يفلتر شرعياً، يجمع العملاء، ويرسل الحملات نيابة عنك.</p>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <button 
+              onClick={runAutopilot}
+              disabled={!['IDLE', 'DONE', 'ERROR'].includes(autopilotState)}
+              className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-8 py-4 rounded-2xl text-lg font-bold transition-all shadow-lg hover:shadow-xl flex items-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed w-full sm:w-auto justify-center"
+            >
+              {!['IDLE', 'DONE', 'ERROR'].includes(autopilotState) ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <PlaneTakeoff className="w-6 h-6" />
+              )}
+              تشغيل الطيار الآلي
+            </button>
+            
+            <div className="flex-1 w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center gap-4 relative overflow-hidden">
+              {!['IDLE', 'DONE', 'ERROR'].includes(autopilotState) && (
+                <div 
+                  className="absolute left-0 top-0 bottom-0 bg-orange-50 transition-all duration-500 ease-out" 
+                  style={{ width: `${autopilotProgress}%` }}
+                />
+              )}
+              <div className="relative z-10 flex items-center gap-3 w-full">
+                {autopilotState === 'HUNTING' && <Search className="w-5 h-5 text-orange-500 animate-pulse" />}
+                {autopilotState === 'FILTERING' && <ShieldCheck className="w-5 h-5 text-green-500 animate-pulse" />}
+                {autopilotState === 'SCRAPING' && <Target className="w-5 h-5 text-blue-500 animate-pulse" />}
+                {autopilotState === 'SENDING' && <Rocket className="w-5 h-5 text-purple-500 animate-bounce" />}
+                <p className="font-semibold text-slate-700">{autopilotMessage}</p>
+              </div>
+            </div>
+          </div>
         </div>
-        {/* Abstract shapes */}
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="hidden lg:flex w-64 h-64 relative items-center justify-center">
+          <div className="absolute inset-0 bg-gradient-to-tr from-orange-100 to-amber-50 rounded-full animate-pulse" />
+          <PlaneTakeoff className="w-32 h-32 text-orange-400 relative z-10 opacity-80" />
+        </div>
       </motion.div>
 
       {/* KPI Cards */}
@@ -159,7 +274,7 @@ export default function DashboardHome() {
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-slate-500 text-sm font-medium">عمليات إعادة الاستهداف</p>
+              <p className="text-slate-500 text-sm font-medium">عمليات المتابعة (Drip)</p>
               <h3 className="text-3xl font-bold mt-1 text-slate-800">{retargetedCount}</h3>
             </div>
             <div className="p-3 bg-orange-50 rounded-xl">
@@ -230,10 +345,10 @@ export default function DashboardHome() {
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-lg">
-                      {activity.id.charAt(0).toUpperCase()}
+                      {activity.businessName ? activity.businessName.charAt(0).toUpperCase() : activity.id.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h4 className="font-semibold text-slate-800">{activity.id}</h4>
+                      <h4 className="font-semibold text-slate-800">{activity.businessName || activity.id}</h4>
                       <p className="text-sm text-slate-500 mt-1">تم إرسال رسالة تسويقية ذكية ✉️</p>
                     </div>
                   </div>
