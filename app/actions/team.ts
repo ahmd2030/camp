@@ -51,7 +51,7 @@ export async function chatWithTeamMember(roleId: string, message: string, histor
         "X-Title": "Mango AI"
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet", // Stronger model for deep logic
+        model: "anthropic/claude-3.5-sonnet-20241022", // Stronger model for deep logic
         messages: messages
       })
     });
@@ -105,7 +105,7 @@ export async function getBoardMemberOpinion(roleId: string, topic: string) {
         "X-Title": "Mango AI"
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet",
+        model: "anthropic/claude-3.5-sonnet-20241022",
         messages: messages
       })
     });
