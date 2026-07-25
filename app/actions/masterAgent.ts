@@ -1,6 +1,8 @@
 "use server";
 
 import { SuggestedNiche, updateNicheStatus } from '@/services/niches';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export async function analyzeNichesPortfolio(niches: SuggestedNiche[]) {
   try {
@@ -59,6 +61,15 @@ ${JSON.stringify(niches.map(n => ({ id: n.id, title: n.title, status: n.status, 
           await updateNicheStatus(rejected.id, 'REJECTED');
         }
       }
+    }
+
+    // Save report to Firestore
+    if (parsed.strategyReport) {
+      await addDoc(collection(db, 'strategic_reports'), {
+        report: parsed.strategyReport,
+        rejectedCount: parsed.rejectedNiches?.length || 0,
+        createdAt: serverTimestamp()
+      });
     }
 
     return { 
