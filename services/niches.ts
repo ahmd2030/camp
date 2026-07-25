@@ -74,3 +74,33 @@ export const updateNicheStatus = async (id: string, status: 'APPROVED' | 'REJECT
     return { success: false, error: error.message };
   }
 };
+
+export const getAllNiches = async (): Promise<{ success: boolean; data?: SuggestedNiche[]; error?: string }> => {
+  try {
+    const q = query(
+      collection(db, "suggested_niches"),
+      orderBy("createdAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
+    const data: SuggestedNiche[] = [];
+    querySnapshot.forEach((doc) => {
+      data.push({ id: doc.id, ...doc.data() } as SuggestedNiche);
+    });
+    return { success: true, data };
+  } catch (error: any) {
+    if (error.message.includes('index')) {
+      console.warn("Index not found for getAllNiches, falling back to basic query");
+      try {
+        const snapshot = await getDocs(collection(db, "suggested_niches"));
+        const data: SuggestedNiche[] = [];
+        snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() } as SuggestedNiche));
+        data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+        return { success: true, data };
+      } catch (fallbackError: any) {
+        return { success: false, error: fallbackError.message };
+      }
+    }
+    console.error("Error fetching all niches:", error);
+    return { success: false, error: error.message };
+  }
+};
