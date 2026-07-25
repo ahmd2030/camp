@@ -31,7 +31,7 @@ export default function Sidebar() {
     { name: 'استفسارات العملاء', href: '/inquiries', icon: Mail },
     { name: 'المجالات', href: '/niches', icon: Briefcase },
     { name: 'المهام', href: '/tasks', icon: Briefcase },
-    { name: 'فريق العمل', href: '/users', icon: Users },
+    { name: 'فريق العمل', href: '/team', icon: Users },
     { name: 'الإعدادات', href: '/settings', icon: Settings },
   ];
 
