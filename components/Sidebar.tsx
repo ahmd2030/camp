@@ -14,7 +14,8 @@ import {
   FileText,
   Mail,
   Rocket,
-  BarChart3
+  BarChart3,
+  Target
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -27,6 +28,7 @@ export default function Sidebar() {
     { name: 'لوحة القيادة', href: '/', icon: LayoutDashboard },
     { name: 'الرادار المالي', href: '/analytics', icon: BarChart3 },
     { name: 'الحملات الجماعية', href: '/campaigns', icon: Rocket },
+    { name: 'التسويق بالعمولة', href: '/affiliate', icon: Target },
     { name: 'رادار الصيد', href: '/scraper', icon: LayoutDashboard },
     { name: 'استفسارات العملاء', href: '/inquiries', icon: Mail },
     { name: 'المجالات', href: '/niches', icon: Briefcase },
