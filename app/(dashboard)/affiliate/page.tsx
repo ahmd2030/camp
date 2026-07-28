@@ -17,7 +17,7 @@ export default function AffiliatePage() {
   const [activeTab, setActiveTab] = useState<Tab>('consultant');
 
   // --- Niche Consultant State ---
-  const [chatHistory, setChatHistory] = useState<{role: string, content: string}[]>([]);
+  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'system' | 'assistant', content: string}[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isConsulting, setIsConsulting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
