@@ -28,12 +28,35 @@ export default function SettingsPage() {
   const [isSavingContext, setIsSavingContext] = useState(false);
   const [contextSuccess, setContextSuccess] = useState(false);
 
+  // State for Integration Status
+  const [integrationStatus, setIntegrationStatus] = useState<any>(null);
+  const [isLoadingIntegrations, setIsLoadingIntegrations] = useState(false);
+
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || 'مدير النظام');
     }
     fetchCompanyContext();
   }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'integrations') {
+      fetchIntegrationsStatus();
+    }
+  }, [activeTab]);
+
+  const fetchIntegrationsStatus = async () => {
+    setIsLoadingIntegrations(true);
+    try {
+      const { checkIntegrationsStatus } = await import('@/app/actions/settings');
+      const status = await checkIntegrationsStatus();
+      setIntegrationStatus(status);
+    } catch (error) {
+      console.error("Failed to fetch integrations status", error);
+    } finally {
+      setIsLoadingIntegrations(false);
+    }
+  };
 
   const fetchCompanyContext = async () => {
     try {
@@ -136,6 +159,12 @@ export default function SettingsPage() {
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'notifications' ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
           >
             <Bell className="w-5 h-5" /> الإشعارات
+          </button>
+          <button 
+            onClick={() => setActiveTab('integrations')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'integrations' ? 'bg-primary text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+          >
+            <Shield className="w-5 h-5" /> التكاملات والخدمات
           </button>
           <button 
             onClick={() => setActiveTab('appearance')}
@@ -294,6 +323,125 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium text-gray-900">قريباً..</p>
                 <p className="text-sm text-gray-500 mt-1">سيتم إضافة دعم الوضع الداكن (Dark Mode) وتخصيص ألوان النظام في التحديثات القادمة.</p>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'integrations' && (
+            <div className="space-y-6 animate-in fade-in">
+              <div className="border-b pb-2">
+                <h3 className="text-lg font-bold text-gray-900">التكاملات والخدمات</h3>
+                <p className="text-sm text-gray-500">إدارة المفاتيح والروابط الخاصة بالخدمات الخارجية المتصلة بالنظام.</p>
+              </div>
+
+              {isLoadingIntegrations ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* OpenRouter Card */}
+                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col hover:border-gray-300 transition-colors">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="font-bold text-gray-900 text-lg">OpenRouter</h4>
+                        <p className="text-xs text-gray-500 mt-1">عقل الذكاء الاصطناعي والمحرك الأساسي للوكلاء</p>
+                      </div>
+                      {integrationStatus?.openrouter ? (
+                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> متصل</span>
+                      ) : (
+                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> مفقود</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-6 flex-1">
+                      المتغير: <code className="bg-white px-2 py-1 rounded border border-gray-200 text-xs text-pink-600 font-mono">OPENROUTER_API_KEY</code>
+                    </div>
+                    <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="block text-center w-full bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl font-bold transition-colors text-sm">
+                      إدارة الحساب والفواتير ↗
+                    </a>
+                  </div>
+
+                  {/* Resend Card */}
+                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col hover:border-gray-300 transition-colors">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="font-bold text-gray-900 text-lg">Resend</h4>
+                        <p className="text-xs text-gray-500 mt-1">محرك البريد الإلكتروني للحملات والتنبيهات</p>
+                      </div>
+                      {integrationStatus?.resend ? (
+                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> متصل</span>
+                      ) : (
+                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> مفقود</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-6 flex-1">
+                      المتغير: <code className="bg-white px-2 py-1 rounded border border-gray-200 text-xs text-pink-600 font-mono">RESEND_API_KEY</code>
+                    </div>
+                    <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="block text-center w-full bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl font-bold transition-colors text-sm">
+                      إدارة الحساب والفواتير ↗
+                    </a>
+                  </div>
+
+                  {/* Cron-job Card */}
+                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col hover:border-gray-300 transition-colors">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="font-bold text-gray-900 text-lg">Cron-job.org</h4>
+                        <p className="text-xs text-gray-500 mt-1">نبض المهام المجدولة (Autopilot)</p>
+                      </div>
+                      {integrationStatus?.cron ? (
+                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> متصل</span>
+                      ) : (
+                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> مفقود</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-6 flex-1">
+                      المتغير: <code className="bg-white px-2 py-1 rounded border border-gray-200 text-xs text-pink-600 font-mono">CRON_SECRET</code>
+                    </div>
+                    <a href="https://cron-job.org/" target="_blank" rel="noopener noreferrer" className="block text-center w-full bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl font-bold transition-colors text-sm">
+                      إدارة الحساب والفواتير ↗
+                    </a>
+                  </div>
+
+                  {/* Vercel Card */}
+                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col hover:border-gray-300 transition-colors">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="font-bold text-gray-900 text-lg">Vercel</h4>
+                        <p className="text-xs text-gray-500 mt-1">خادم الاستضافة والبنية التحتية</p>
+                      </div>
+                      <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> متصل</span>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-6 flex-1">
+                      البيئة: <code className="bg-white px-2 py-1 rounded border border-gray-200 text-xs font-mono">Production</code>
+                    </div>
+                    <a href="https://vercel.com/" target="_blank" rel="noopener noreferrer" className="block text-center w-full bg-black hover:bg-gray-900 text-white px-4 py-2.5 rounded-xl font-bold transition-colors text-sm">
+                      لوحة تحكم الاستضافة ↗
+                    </a>
+                  </div>
+
+                  {/* Firebase Card */}
+                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 flex flex-col hover:border-gray-300 transition-colors">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="font-bold text-gray-900 text-lg">Firebase</h4>
+                        <p className="text-xs text-gray-500 mt-1">قاعدة البيانات الأساسية والتخزين (NoSQL)</p>
+                      </div>
+                      {integrationStatus?.firebase ? (
+                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> متصل</span>
+                      ) : (
+                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> مفقود</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-6 flex-1">
+                      المتغير: <code className="bg-white px-2 py-1 rounded border border-gray-200 text-xs text-pink-600 font-mono">NEXT_PUBLIC_FIREBASE_PROJECT_ID</code>
+                    </div>
+                    <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="block text-center w-full bg-[#FFCA28] hover:bg-[#FFB300] text-gray-900 px-4 py-2.5 rounded-xl font-bold transition-colors text-sm">
+                      وحدة التحكم (Console) ↗
+                    </a>
+                  </div>
+                  
+                </div>
+              )}
             </div>
           )}
         </div>
