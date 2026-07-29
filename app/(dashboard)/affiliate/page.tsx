@@ -21,6 +21,10 @@ export default function AffiliatePage() {
   const [chatInput, setChatInput] = useState('');
   const [isConsulting, setIsConsulting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [pendingOpportunity, setPendingOpportunity] = useState<{ niche: string, productName: string } | null>(null);
+  const [takeoffLink, setTakeoffLink] = useState('');
+  const [takeoffList, setTakeoffList] = useState('');
+  const [isTakingOff, setIsTakingOff] = useState(false);
 
   // --- Links Bank State ---
   const [links, setLinks] = useState<AffiliateLink[]>([]);
@@ -41,10 +45,10 @@ export default function AffiliatePage() {
   const [isStartingAutopilot, setIsStartingAutopilot] = useState(false);
 
   useEffect(() => {
+    fetchLists(); // Fetch lists early for the dropdown
     if (activeTab === 'links') fetchLinks();
     if (activeTab === 'autopilot') {
       fetchLinks();
-      fetchLists();
     }
   }, [activeTab]);
 
@@ -55,24 +59,88 @@ export default function AffiliatePage() {
   }, [chatHistory]);
 
   // --- Niche Consultant Logic ---
-  const handleConsult = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
+  const handleConsult = async (e?: React.FormEvent, customPrompt?: string) => {
+    if (e) e.preventDefault();
+    const userMessage = customPrompt || chatInput;
+    if (!userMessage.trim()) return;
 
-    const userMessage = chatInput;
     setChatInput('');
     setChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsConsulting(true);
 
-    const fullPrompt = `أنا أسألك بصفتك مستشار التسويق بالعمولة (Affiliate Marketing). ساعدني في هذا الطلب: ${userMessage}`;
+    const isDiscovery = customPrompt !== undefined;
+    let fullPrompt = `أنا أسألك بصفتك مستشار التسويق بالعمولة (Affiliate Marketing). ساعدني في هذا الطلب: ${userMessage}`;
+    
+    if (isDiscovery) {
+      fullPrompt = `أنت مدير تسويق Affiliate محترف. ابحث واقترح لي فوراً منتجاً واحداً محدداً ومربحاً جداً في الوقت الحالي. أجب حصراً بصيغة JSON كالتالي: {"niche": "اسم المجال", "productName": "اسم المنتج", "reason": "سبب اختيارك له باختصار"}. لا تضف أي نص آخر خارج الـ JSON.`;
+    }
+
     const res = await chatWithTeamMember('cmo', fullPrompt, chatHistory);
     
     if (res.success && res.response) {
-      setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
+      if (isDiscovery) {
+        try {
+          const match = res.response.match(/\{[\s\S]*\}/);
+          if (match) {
+            const data = JSON.parse(match[0]);
+            setPendingOpportunity({ niche: data.niche, productName: data.productName });
+            setChatHistory(prev => [...prev, { role: 'assistant', content: `لقد وجدت فرصة ممتازة!\n\n**المجال:** ${data.niche}\n**المنتج:** ${data.productName}\n**السبب:** ${data.reason}` }]);
+          } else {
+             setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
+          }
+        } catch (err) {
+          setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
+        }
+      } else {
+        setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
+      }
     } else {
       toast.error('حدث خطأ أثناء التواصل مع المستشار');
     }
     setIsConsulting(false);
+  };
+
+  const handleTakeoff = async () => {
+    if (!takeoffLink || !takeoffList || !pendingOpportunity) {
+      toast.error('يرجى إدخال الرابط واختيار القائمة البريدية');
+      return;
+    }
+    setIsTakingOff(true);
+
+    // 1. Save Link
+    const linkRes = await createAffiliateLink({
+      niche: pendingOpportunity.niche,
+      productName: pendingOpportunity.productName,
+      affiliateLink: takeoffLink,
+      status: true
+    });
+
+    if (linkRes.success) {
+      // 2. Create Autopilot Cron Task
+      const taskRes = await createScheduledTask({
+        agentId: 'cmo',
+        prompt: `[Affiliate Autopilot] ترويج لمنتج ${pendingOpportunity.productName}`,
+        frequency: 'weekly',
+        isActive: true,
+        // @ts-ignore
+        type: 'affiliate_autopilot',
+        linkId: linkRes.id,
+        listId: takeoffList
+      });
+
+      if (taskRes.success) {
+        toast.success('تم الإقلاع بنجاح! 🚀 الطائرة الآن في الجو.');
+        setPendingOpportunity(null);
+        setTakeoffLink('');
+        setTakeoffList('');
+      } else {
+        toast.error('تم حفظ الرابط ولكن فشل إطلاق الطائرة الآلية.');
+      }
+    } else {
+      toast.error('حدث خطأ أثناء حفظ الرابط.');
+    }
+    
+    setIsTakingOff(false);
   };
 
   // --- Links Logic ---
@@ -227,44 +295,101 @@ export default function AffiliatePage() {
                   <Bot className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800">مستشار المجالات (مدير التسويق)</h3>
+                  <h3 className="font-bold text-slate-800">غرفة عمليات الطيار الآلي (CMO)</h3>
                   <p className="text-xs text-slate-500">متصل وجاهز للبحث عبر الإنترنت</p>
                 </div>
               </div>
-              <button onClick={() => {setActiveTab('links'); setShowAddLink(true)}} className="text-xs bg-rose-50 text-rose-600 hover:bg-rose-100 px-3 py-2 rounded-lg font-bold transition-colors">
-                + تسجيل منتج جديد
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => handleConsult(undefined, 'اكتشف فرصة')} 
+                  disabled={isConsulting}
+                  className="text-xs bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-2 rounded-lg font-bold transition-colors disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4 inline-block mr-1" />
+                  اكتشاف الفرص
+                </button>
+                <button onClick={() => {setActiveTab('links'); setShowAddLink(true)}} className="text-xs bg-rose-50 text-rose-600 hover:bg-rose-100 px-3 py-2 rounded-lg font-bold transition-colors">
+                  + تسجيل منتج يدوي
+                </button>
+              </div>
             </div>
 
-            <div ref={scrollRef} className="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-50/50">
-              {chatHistory.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-70">
-                  <Search className="w-12 h-12 mb-4 text-slate-300" />
-                  <p>اسألني عن أفضل المنتجات للتسويق بالعمولة اليوم.</p>
-                </div>
-              ) : (
-                chatHistory.map((msg, idx) => (
-                  <div key={idx} className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'mr-auto flex-row-reverse' : ''}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-slate-800 text-white' : 'bg-indigo-100 text-indigo-600'}`}>
-                      {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+            <div className="flex flex-col h-full bg-slate-50/50 relative">
+              
+              {/* Pending Opportunity Overlay */}
+              <AnimatePresence>
+                {pendingOpportunity && (
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="absolute bottom-20 left-4 right-4 bg-white p-5 rounded-2xl shadow-xl border border-rose-200 z-10 flex flex-col gap-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                          <Target className="w-4 h-4 text-rose-500" />
+                          فرصة معلقة: {pendingOpportunity.productName}
+                        </h4>
+                        <p className="text-xs text-slate-500">المجال: {pendingOpportunity.niche}</p>
+                      </div>
+                      <button onClick={() => setPendingOpportunity(null)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
                     </div>
-                    <div className={`p-4 rounded-2xl whitespace-pre-wrap text-sm leading-relaxed ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-sm' : 'bg-white border border-slate-100 rounded-tl-sm shadow-sm'}`}>
-                      {msg.content}
+                    <div className="flex gap-3">
+                      <input 
+                        type="url" 
+                        value={takeoffLink} 
+                        onChange={e => setTakeoffLink(e.target.value)} 
+                        placeholder="أدخل رابط الإحالة الخاص بك هنا..." 
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-rose-500 text-left" 
+                        dir="ltr"
+                      />
+                      <select 
+                        value={takeoffList} 
+                        onChange={e => setTakeoffList(e.target.value)} 
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-rose-500"
+                      >
+                        <option value="">-- اختر القائمة البريدية --</option>
+                        {lists.map(l => <option key={l.id} value={l.id}>{l.name} ({l.emails.length})</option>)}
+                      </select>
+                      <button 
+                        onClick={handleTakeoff}
+                        disabled={isTakingOff || !takeoffLink || !takeoffList}
+                        className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-6 py-2 rounded-xl transition-all shadow-md flex items-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isTakingOff ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                        إقلاع 🚀
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div ref={scrollRef} className="flex-1 p-6 overflow-y-auto space-y-4 pb-32">
+                {chatHistory.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-70">
+                    <Search className="w-12 h-12 mb-4 text-slate-300" />
+                    <p>اسألني عن أفضل المنتجات، أو اضغط على "اكتشاف الفرص".</p>
+                  </div>
+                ) : (
+                  chatHistory.map((msg, idx) => (
+                    <div key={idx} className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'mr-auto flex-row-reverse' : ''}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-slate-800 text-white' : 'bg-indigo-100 text-indigo-600'}`}>
+                        {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                      </div>
+                      <div className={`p-4 rounded-2xl whitespace-pre-wrap text-sm leading-relaxed ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-sm' : 'bg-white border border-slate-100 rounded-tl-sm shadow-sm'}`}>
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {isConsulting && (
+                   <div className="flex gap-3">
+                    <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center shrink-0">
+                       <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="p-4 bg-white border border-slate-100 rounded-2xl rounded-tl-sm flex items-center gap-2 shadow-sm">
+                      <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                      <span className="text-slate-500 text-sm">يقوم بالبحث وتحليل الأسواق...</span>
                     </div>
                   </div>
-                ))
-              )}
-              {isConsulting && (
-                 <div className="flex gap-3">
-                  <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center shrink-0">
-                     <Bot className="w-4 h-4" />
-                  </div>
-                  <div className="p-4 bg-white border border-slate-100 rounded-2xl rounded-tl-sm flex items-center gap-2 shadow-sm">
-                    <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
-                    <span className="text-slate-500 text-sm">يقوم بالبحث وتحليل الأسواق...</span>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             <form onSubmit={handleConsult} className="p-4 bg-white border-t border-slate-100 flex gap-2">

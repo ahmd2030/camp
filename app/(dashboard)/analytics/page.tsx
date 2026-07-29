@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { DollarSign, Zap, Activity, Clock, ShieldCheck, TrendingUp, Users, ServerCog, Briefcase, RefreshCcw, Bot } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, addDoc, serverTimestamp } from 'firebase/firestore';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const ROLES: Record<string, { title: string, color: string, icon: any }> = {
@@ -28,6 +28,12 @@ export default function AnalyticsPage() {
   const [usageData, setUsageData] = useState<UsageRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // OpEx Fund
+  const [profitInput, setProfitInput] = useState('');
+  const [totalOpex, setTotalOpex] = useState(0);
+  const [totalNetProfit, setTotalNetProfit] = useState(0);
+  const [isSavingProfit, setIsSavingProfit] = useState(false);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -35,6 +41,17 @@ export default function AnalyticsPage() {
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UsageRecord));
       setUsageData(data);
+
+      const r = query(collection(db, 'revenue_records'));
+      const revSnap = await getDocs(r);
+      let opex = 0;
+      let net = 0;
+      revSnap.forEach(doc => {
+        opex += doc.data().opex || 0;
+        net += doc.data().netProfit || 0;
+      });
+      setTotalOpex(opex);
+      setTotalNetProfit(net);
     } catch (error) {
       console.error("Failed to fetch analytics:", error);
     } finally {
@@ -45,6 +62,30 @@ export default function AnalyticsPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleSaveProfit = async () => {
+    const profit = parseFloat(profitInput);
+    if (isNaN(profit) || profit <= 0) return;
+    setIsSavingProfit(true);
+    try {
+      const opex = profit * 0.2;
+      const netProfit = profit * 0.8;
+      await addDoc(collection(db, 'revenue_records'), {
+        totalProfit: profit,
+        opex,
+        netProfit,
+        timestamp: serverTimestamp()
+      });
+      setProfitInput('');
+      fetchData();
+      const { toast } = await import('sonner');
+      toast.success('تم تسجيل الأرباح وتوزيع الميزانية بنجاح!');
+    } catch (error) {
+      console.error("Error saving profit:", error);
+    } finally {
+      setIsSavingProfit(false);
+    }
+  };
 
   // Aggregations
   const totalCost = usageData.reduce((acc, curr) => acc + curr.cost, 0);
@@ -240,6 +281,52 @@ export default function AnalyticsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* OpEx Fund Section */}
+      <div className="mt-8">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm overflow-hidden flex flex-col md:flex-row gap-8 items-center">
+          <div className="flex-1 space-y-4 w-full">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Bot className="w-6 h-6 text-indigo-500" />
+              صندوق التشغيل والتطوير (OpEx Fund)
+            </h2>
+            <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
+              قم بتسجيل أرباحك الواردة من منصات الإحالة. سيقوم النظام تلقائياً بتخصيص 20% لتغطية تكاليف التشغيل (APIs والاستضافة) لضمان استمرارية عمل الآلة، وتحويل 80% كصافي أرباح لك.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="relative flex-1 max-w-xs">
+                <span className="absolute right-4 top-2.5 text-slate-400 font-bold">$</span>
+                <input 
+                  type="number" 
+                  value={profitInput}
+                  onChange={e => setProfitInput(e.target.value)}
+                  placeholder="أدخل مبلغ الأرباح المستلمة" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-8 pl-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 text-left font-bold" 
+                  dir="ltr"
+                />
+              </div>
+              <button 
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                onClick={handleSaveProfit}
+                disabled={isSavingProfit || !profitInput}
+              >
+                تسجيل الأرباح
+              </button>
+            </div>
+          </div>
+          
+          <div className="w-full md:w-auto flex gap-4">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 min-w-[140px] text-center flex flex-col items-center justify-center">
+              <span className="text-xs font-bold text-slate-500 mb-1">صندوق النظام (20%)</span>
+              <span className="text-2xl font-black text-indigo-600">${totalOpex.toFixed(2)}</span>
+            </div>
+            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 min-w-[140px] text-center flex flex-col items-center justify-center">
+              <span className="text-xs font-bold text-emerald-600 mb-1">صافي الأرباح (80%)</span>
+              <span className="text-2xl font-black text-emerald-600">${totalNetProfit.toFixed(2)}</span>
+            </div>
           </div>
         </motion.div>
       </div>
