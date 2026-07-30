@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, where, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { Mail, MessageSquare, Send, Link as LinkIcon, Loader2, Bot, User, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { executeEmailAction } from '@/app/actions/email';
 
 interface AffiliateRequest {
   id: string;
@@ -63,12 +64,18 @@ export default function AdminInboxPage() {
       // استبدال الـ Placeholder بالرابط الفعلي
       const finalEmailContent = req.aiDraftResponse.replace(/\[INSERT_AFFILIATE_LINK_HERE\]/g, link);
       
-      // طباعة النتيجة في الكونسول (تمهيداً للخطوة الثالثة)
-      console.log('--- 최종 إيميل جاهز للإرسال ---');
-      console.log('إلى:', req.customerEmail);
-      console.log('المحتوى:');
-      console.log(finalEmailContent);
-      console.log('------------------------------');
+      // إرسال الإيميل للعميل فعلياً
+      const emailResult = await executeEmailAction(
+        req.customerEmail,
+        'رد على استفسارك',
+        `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
+          ${finalEmailContent.replace(/\n/g, '<br>')}
+        </div>`
+      );
+
+      if (!emailResult.success) {
+        throw new Error(emailResult.error);
+      }
 
       // تحديث حالة الطلب في قاعدة البيانات لكي يختفي من صندوق الوارد
       await updateDoc(doc(db, 'requests', req.id), {
@@ -77,7 +84,7 @@ export default function AdminInboxPage() {
         sentAt: new Date()
       });
 
-      toast.success('تم استبدال الرابط واعتماد الإيميل بنجاح! (راجع الـ Console)');
+      toast.success('تم الإرسال للعميل بنجاح!');
       
       // مسح الرابط من الحالة
       setAffiliateLinks(prev => {
@@ -86,9 +93,9 @@ export default function AdminInboxPage() {
         return next;
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error approving request:', error);
-      toast.error('حدث خطأ أثناء اعتماد الطلب');
+      toast.error(error.message || 'حدث خطأ أثناء اعتماد الطلب وإرساله');
     } finally {
       setProcessingId(null);
     }
