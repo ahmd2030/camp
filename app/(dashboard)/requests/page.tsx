@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, where, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { Mail, MessageSquare, Send, Link as LinkIcon, Loader2, Bot, User, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { executeEmailAction } from '@/app/actions/email';
@@ -99,6 +99,25 @@ export default function AdminInboxPage() {
     }
   };
 
+  const addDummyRequest = async () => {
+    try {
+      await updateDoc(doc(db, 'requests', 'dummy_123'), { dummy: true }).catch(async () => {
+        // Just add a new doc if doesn't exist
+        await addDoc(collection(db, 'requests'), {
+          customerEmail: "ahmd@example.com",
+          customerRequest: "مرحباً، أبحث عن أداة جيدة لإدارة حساباتي على منصات التواصل الاجتماعي والنشر التلقائي. هل لديك اقتراح؟",
+          aiDraftResponse: "مرحباً بك! يسعدني تواصلك.\n\nبناءً على طلبك، أرشح لك بكل ثقة أداة (Buffer) أو (Hootsuite)، ولكنني وجدت أداة مذهلة تدعى (Metricool) تفي بالغرض تماماً.\n\nيمكنك التسجيل فيها وتجربتها مجاناً عبر الرابط التالي:\n[INSERT_AFFILIATE_LINK_HERE]\n\nأتمنى لك التوفيق في إدارة حساباتك!",
+          status: "PENDING_AFFILIATE",
+          createdAt: new Date()
+        });
+      });
+      toast.success('تمت إضافة طلب تجريبي للمصيدة!');
+    } catch (error) {
+      console.error(error);
+      toast.error('فشل إضافة الطلب التجريبي');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center">
@@ -110,14 +129,23 @@ export default function AdminInboxPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 p-8 font-sans -m-8" dir="rtl">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-          <Mail className="w-8 h-8 text-indigo-600" />
-          صندوق الوارد الإداري (المصيدة)
-        </h1>
-        <p className="text-slate-500 mt-2">
-          راجع مسودات الذكاء الاصطناعي، ضع رابط العمولة، واعتمد الإرسال.
-        </p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <Mail className="w-8 h-8 text-indigo-600" />
+            صندوق الوارد الإداري (المصيدة)
+          </h1>
+          <p className="text-slate-500 mt-2">
+            راجع مسودات الذكاء الاصطناعي، ضع رابط العمولة، واعتمد الإرسال.
+          </p>
+        </div>
+        <button 
+          onClick={addDummyRequest}
+          className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
+        >
+          <Bot className="w-4 h-4" />
+          + اصطياد طلب تجريبي
+        </button>
       </div>
 
       {/* Requests List */}
