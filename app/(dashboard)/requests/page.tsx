@@ -64,27 +64,25 @@ export default function AdminInboxPage() {
       // استبدال الـ Placeholder بالرابط الفعلي
       const finalEmailContent = req.aiDraftResponse.replace(/\[INSERT_AFFILIATE_LINK_HERE\]/g, link);
       
-      // إرسال الإيميل للعميل فعلياً
-      const emailResult = await executeEmailAction(
-        req.customerEmail,
-        'رد على استفسارك',
-        `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
-          ${finalEmailContent.replace(/\n/g, '<br>')}
-        </div>`
-      );
-
-      if (!emailResult.success) {
-        throw new Error(emailResult.error);
-      }
-
-      // تحديث حالة الطلب في قاعدة البيانات لكي يختفي من صندوق الوارد
-      await updateDoc(doc(db, 'requests', req.id), {
-        status: 'APPROVED_AND_SENT',
-        finalResponse: finalEmailContent,
-        sentAt: new Date()
+      const response = await fetch('/api/send-approval', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: req.id,
+          customerEmail: req.customerEmail,
+          finalEmailContent: finalEmailContent
+        })
       });
 
-      toast.success('تم الإرسال للعميل بنجاح!');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'فشل الاتصال بالخادم');
+      }
+
+      toast.success('تم إرسال الإيميل بنجاح!');
       
       // مسح الرابط من الحالة
       setAffiliateLinks(prev => {
