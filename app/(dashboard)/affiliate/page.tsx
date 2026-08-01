@@ -10,6 +10,7 @@ import {
   createMailingList, getMailingLists, deleteMailingList, MailingList
 } from '@/app/actions/affiliate';
 import { createScheduledTask } from '@/app/actions/cron';
+import { logSmartError } from '@/app/actions/monitor';
 
 type Tab = 'consultant' | 'links' | 'autopilot';
 
@@ -75,29 +76,39 @@ export default function AffiliatePage() {
       fullPrompt = `أنت مدير تسويق Affiliate محترف. ابحث واقترح لي فوراً منتجاً واحداً محدداً ومربحاً جداً في الوقت الحالي. أجب حصراً بصيغة JSON كالتالي: {"niche": "اسم المجال", "productName": "اسم المنتج", "reason": "سبب اختيارك له باختصار"}. لا تضف أي نص آخر خارج الـ JSON.`;
     }
 
-    const res = await chatWithTeamMember('cmo', fullPrompt, chatHistory);
-    
-    if (res.success && res.response) {
-      if (isDiscovery) {
-        try {
-          const match = res.response.match(/\{[\s\S]*\}/);
-          if (match) {
-            const data = JSON.parse(match[0]);
-            setPendingOpportunity({ niche: data.niche, productName: data.productName });
-            setChatHistory(prev => [...prev, { role: 'assistant', content: `لقد وجدت فرصة ممتازة!\n\n**المجال:** ${data.niche}\n**المنتج:** ${data.productName}\n**السبب:** ${data.reason}` }]);
-          } else {
-             setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
+    try {
+      const res = await chatWithTeamMember('cmo', fullPrompt, chatHistory);
+      
+      if (res.success && res.response) {
+        if (isDiscovery) {
+          try {
+            const match = res.response.match(/\{[\s\S]*\}/);
+            if (match) {
+              const data = JSON.parse(match[0]);
+              setPendingOpportunity({ niche: data.niche, productName: data.productName });
+              setChatHistory(prev => [...prev, { role: 'assistant', content: `لقد وجدت فرصة ممتازة!\n\n**المجال:** ${data.niche}\n**المنتج:** ${data.productName}\n**السبب:** ${data.reason}` }]);
+            } else {
+               setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
+            }
+          } catch (err) {
+            setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
           }
-        } catch (err) {
+        } else {
           setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
         }
       } else {
-        setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
+        toast.error('حدث خطأ أثناء التواصل مع المستشار');
+        if (res.error) {
+          await logSmartError("Autopilot UI Error (Agent Failure): " + res.error);
+        }
       }
-    } else {
-      toast.error('حدث خطأ أثناء التواصل مع المستشار');
+    } catch (error: any) {
+      console.error("Autopilot UI Error:", error);
+      toast.error('حدث خطأ تقني في الواجهة ولم يصل الطلب للـ API');
+      await logSmartError("Autopilot UI Error: " + (error.message || "Unknown error"));
+    } finally {
+      setIsConsulting(false);
     }
-    setIsConsulting(false);
   };
 
   const handleTakeoff = async () => {
@@ -223,25 +234,35 @@ export default function AffiliatePage() {
     const link = links.find(l => l.id === selectedLink);
     const list = lists.find(l => l.id === selectedList);
 
-    const res = await createScheduledTask({
-      agentId: 'cmo',
-      prompt: `[Affiliate Autopilot] ترويج لمنتج ${link?.productName} للقائمة ${list?.name}`,
-      frequency: frequency,
-      isActive: true,
-      // @ts-ignore (we inject custom fields)
-      type: 'affiliate_autopilot',
-      linkId: selectedLink,
-      listId: selectedList
-    });
+    try {
+      const res = await createScheduledTask({
+        agentId: 'cmo',
+        prompt: `[Affiliate Autopilot] ترويج لمنتج ${link?.productName} للقائمة ${list?.name}`,
+        frequency: frequency,
+        isActive: true,
+        // @ts-ignore (we inject custom fields)
+        type: 'affiliate_autopilot',
+        linkId: selectedLink,
+        listId: selectedList
+      });
 
-    if (res.success) {
-      toast.success('تم إطلاق نظام الطائرة بنجاح! سيقوم المستشار بإرسال الحملات تلقائياً.');
-      setSelectedLink('');
-      setSelectedList('');
-    } else {
-      toast.error('حدث خطأ أثناء تشغيل النظام');
+      if (res.success) {
+        toast.success('تم إطلاق نظام الطائرة بنجاح! سيقوم المستشار بإرسال الحملات تلقائياً.');
+        setSelectedLink('');
+        setSelectedList('');
+      } else {
+        toast.error('حدث خطأ أثناء تشغيل النظام');
+        if (res.error) {
+          await logSmartError("Autopilot Cron Error: " + res.error);
+        }
+      }
+    } catch (error: any) {
+      console.error("Autopilot Cron Error:", error);
+      toast.error('حدث خطأ تقني في الواجهة أثناء إطلاق الطائرة');
+      await logSmartError("Autopilot Cron Error (UI): " + (error.message || "Unknown error"));
+    } finally {
+      setIsStartingAutopilot(false);
     }
-    setIsStartingAutopilot(false);
   };
 
 
