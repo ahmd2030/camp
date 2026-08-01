@@ -16,7 +16,8 @@ import {
   Rocket,
   BarChart3,
   Target,
-  MessageSquare
+  MessageSquare,
+  Activity
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -36,6 +37,7 @@ export default function Sidebar() {
     { name: 'المجالات', href: '/niches', icon: Briefcase },
     { name: 'المهام', href: '/tasks', icon: Briefcase },
     { name: 'فريق العمل', href: '/team', icon: Users },
+    { name: 'المراقبة الذكية', href: '/alerts', icon: Activity },
     { name: 'الإعدادات', href: '/settings', icon: Settings },
   ];
 
