@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Link as LinkIcon, Mail, Play, Plus, Target, Trash2, Edit, Save, X, Search, CheckCircle2, User, Loader2, Sparkles, Send } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
-import { chatWithTeamMember } from '@/app/actions/team';
+import { chatWithTeamMember, continueChatWithSearch } from '@/app/actions/team';
 import { 
   createAffiliateLink, getAffiliateLinks, deleteAffiliateLink, updateAffiliateLink, AffiliateLink,
   createMailingList, getMailingLists, deleteMailingList, MailingList
@@ -83,25 +83,38 @@ export default function AffiliatePage() {
         throw new Error(res.error || "Server Error from CMO");
       }
 
-      if (res.success && res.response) {
-        if (isDiscovery) {
-          try {
-            const match = res.response.match(/\{[\s\S]*\}/);
-            if (match) {
-              const data = JSON.parse(match[0]);
-              setPendingOpportunity({ niche: data.niche, productName: data.productName });
-              setChatHistory(prev => [...prev, { role: 'assistant', content: `لقد وجدت فرصة ممتازة!\n\n**المجال:** ${data.niche}\n**المنتج:** ${data.productName}\n**السبب:** ${data.reason}` }]);
-            } else {
-               window.alert('السيرفر رد بنجاح ولكن ببيانات لا تحتوي JSON: ' + JSON.stringify(res));
-               setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
-            }
-          } catch (err) {
-            window.alert('السيرفر رد بنجاح ولكن فشل تحليل JSON: ' + JSON.stringify(res));
-            setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
-          }
-        } else {
-          setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
+      let finalResponse = res.response;
+
+      if (res.isSearching) {
+        setChatHistory(prev => [...prev, { role: 'assistant', content: `[جاري البحث في الإنترنت عن: ${res.query}]` }]);
+        const searchRes = await continueChatWithSearch('cmo', chatHistory, res.assistantMessage, res.query);
+        if (!searchRes.success) {
+          throw new Error(searchRes.error || "Server Error during search");
         }
+        finalResponse = searchRes.response;
+      }
+
+      if (!finalResponse) {
+        throw new Error("السيرفر رد بنجاح ولكن البيانات كانت فارغة (لا يوجد رد نصي).");
+      }
+
+      if (isDiscovery) {
+        try {
+          const match = finalResponse.match(/\{[\s\S]*\}/);
+          if (match) {
+            const data = JSON.parse(match[0]);
+            setPendingOpportunity({ niche: data.niche, productName: data.productName });
+            setChatHistory(prev => [...prev, { role: 'assistant', content: `لقد وجدت فرصة ممتازة!\n\n**المجال:** ${data.niche}\n**المنتج:** ${data.productName}\n**السبب:** ${data.reason}` }]);
+          } else {
+             window.alert('السيرفر رد بنجاح ولكن ببيانات لا تحتوي JSON: ' + finalResponse);
+             setChatHistory(prev => [...prev, { role: 'assistant', content: finalResponse }]);
+          }
+        } catch (err) {
+          window.alert('السيرفر رد بنجاح ولكن فشل تحليل JSON: ' + finalResponse);
+          setChatHistory(prev => [...prev, { role: 'assistant', content: finalResponse }]);
+        }
+      } else {
+        setChatHistory(prev => [...prev, { role: 'assistant', content: finalResponse }]);
       }
     } catch (error: any) {
       console.error("Autopilot UI Error:", error);
