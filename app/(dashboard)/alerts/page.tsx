@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { AlertTriangle, Activity, CheckCircle2, ServerCrash, Eye, Clock, Terminal } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -53,6 +53,21 @@ export default function AlertsPage() {
     }
   };
 
+  const addDummyAlert = async () => {
+    try {
+      await addDoc(collection(db, 'system_alerts'), {
+        technicalError: "ReferenceError: window is not defined at parseDocument (eval at <anonymous>)",
+        aiMessage: "هناك محاولة لاستخدام كود يعتمد على المتصفح (Window) داخل الخادم (Server). لحل المشكلة، تأكد من استخدام 'use client' في بداية الملف الذي يحتوي على هذا الكود.",
+        status: 'UNREAD',
+        timestamp: new Date()
+      });
+      toast.success('تمت إضافة تنبيه تجريبي بنجاح!');
+    } catch (error) {
+      console.error(error);
+      toast.error('فشل إضافة التنبيه');
+    }
+  };
+
   const unreadCount = alerts.filter(a => a.status === 'UNREAD').length;
 
   if (loading) {
@@ -76,12 +91,20 @@ export default function AlertsPage() {
             متابعة الأخطاء التقنية لحظة بلحظة مع تحليل فوري من المدير التقني (AI).
           </p>
         </div>
-        {unreadCount > 0 && (
-          <div className="bg-rose-100 text-rose-700 px-4 py-2 rounded-full font-bold flex items-center gap-2 animate-pulse">
-            <AlertTriangle className="w-5 h-5" />
-            {unreadCount} تنبيهات غير مقروءة
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={addDummyAlert}
+            className="bg-white border border-slate-200 text-slate-700 hover:bg-rose-50 hover:text-rose-600 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm flex items-center gap-2"
+          >
+            + تنبيه تجريبي
+          </button>
+          {unreadCount > 0 && (
+            <div className="bg-rose-100 text-rose-700 px-4 py-2 rounded-full font-bold flex items-center gap-2 animate-pulse">
+              <AlertTriangle className="w-5 h-5" />
+              {unreadCount} تنبيهات غير مقروءة
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Alerts List */}
