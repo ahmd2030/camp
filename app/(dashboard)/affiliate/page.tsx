@@ -79,6 +79,10 @@ export default function AffiliatePage() {
     try {
       const res = await chatWithTeamMember('cmo', fullPrompt, chatHistory);
       
+      if (!res.success) {
+        throw new Error(res.error || "Server Error from CMO");
+      }
+
       if (res.success && res.response) {
         if (isDiscovery) {
           try {
@@ -95,11 +99,6 @@ export default function AffiliatePage() {
           }
         } else {
           setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
-        }
-      } else {
-        toast.error('حدث خطأ أثناء التواصل مع المستشار');
-        if (res.error) {
-          await logSmartError("Autopilot UI Error (Agent Failure): " + res.error);
         }
       }
     } catch (error: any) {
@@ -247,16 +246,13 @@ export default function AffiliatePage() {
         listId: selectedList
       });
 
-      if (res.success) {
-        toast.success('تم إطلاق نظام الطائرة بنجاح! سيقوم المستشار بإرسال الحملات تلقائياً.');
-        setSelectedLink('');
-        setSelectedList('');
-      } else {
-        toast.error('حدث خطأ أثناء تشغيل النظام');
-        if (res.error) {
-          await logSmartError("Autopilot Cron Error: " + res.error);
-        }
+      if (!res.success) {
+        throw new Error(res.error || "Server Error from Cron Task");
       }
+
+      toast.success('تم إطلاق نظام الطائرة بنجاح! سيقوم المستشار بإرسال الحملات تلقائياً.');
+      setSelectedLink('');
+      setSelectedList('');
     } catch (error: any) {
       console.error("Autopilot Cron Error:", error);
       toast.error('حدث خطأ تقني في الواجهة أثناء إطلاق الطائرة');
