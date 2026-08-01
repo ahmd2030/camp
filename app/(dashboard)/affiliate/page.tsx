@@ -105,6 +105,7 @@ export default function AffiliatePage() {
     } catch (error: any) {
       console.error("Autopilot UI Error:", error);
       toast.error('حدث خطأ تقني في الواجهة ولم يصل الطلب للـ API');
+      window.alert("🚨 عطل الطوارئ: " + (error.message || JSON.stringify(error)));
       await logSmartError("Autopilot UI Error: " + (error.message || "Unknown error"));
     } finally {
       setIsConsulting(false);
@@ -259,6 +260,7 @@ export default function AffiliatePage() {
     } catch (error: any) {
       console.error("Autopilot Cron Error:", error);
       toast.error('حدث خطأ تقني في الواجهة أثناء إطلاق الطائرة');
+      window.alert("🚨 عطل الطوارئ: " + (error.message || JSON.stringify(error)));
       await logSmartError("Autopilot Cron Error (UI): " + (error.message || "Unknown error"));
     } finally {
       setIsStartingAutopilot(false);
