@@ -54,6 +54,10 @@ async function recordApiUsage(roleId: string, usage: any) {
 }
 
 export async function chatWithTeamMember(roleId: string, message: string, history: ChatMessage[] = []) {
+  if (!process.env.OPENROUTER_API_KEY) {
+    return { success: false, error: 'مفتاح OPENROUTER_API_KEY مفقود من إعدادات البيئة (Vercel).' };
+  }
+
   try {
     const roleTitle = ROLES[roleId] || 'مستشار خبير';
     
@@ -307,6 +311,10 @@ export async function continueChatWithSearch(
   queryStr: string,
   topicContext?: string
 ) {
+  if (!process.env.OPENROUTER_API_KEY) {
+    return { success: false, error: 'مفتاح OPENROUTER_API_KEY مفقود من إعدادات البيئة (Vercel).' };
+  }
+
   try {
     // 1. Perform Search using cheerio
     const searchRes = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(queryStr), {

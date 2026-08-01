@@ -87,7 +87,9 @@ export default function AffiliatePage() {
 
       if (res.isSearching) {
         setChatHistory(prev => [...prev, { role: 'assistant', content: `[جاري البحث في الإنترنت عن: ${res.query}]` }]);
-        const searchRes = await continueChatWithSearch('cmo', chatHistory, res.assistantMessage, res.query);
+        
+        const fullHistoryForSearch = [...chatHistory, { role: 'user' as const, content: fullPrompt }];
+        const searchRes = await continueChatWithSearch('cmo', fullHistoryForSearch, res.assistantMessage, res.query);
         if (!searchRes.success) {
           throw new Error(searchRes.error || "Server Error during search");
         }
