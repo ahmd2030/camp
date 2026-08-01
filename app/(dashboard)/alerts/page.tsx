@@ -102,12 +102,12 @@ export default function AlertsPage() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className={\`bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col \${
+                className={`bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col ${
                   alert.status === 'UNREAD' ? 'border-rose-200 ring-1 ring-rose-100' : 'border-slate-100 opacity-75'
-                }\`}
+                }`}
               >
                 {/* AI Explanation (The main focus for the manager) */}
-                <div className={\`p-6 border-b \${alert.status === 'UNREAD' ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50 border-slate-100'}\`}>
+                <div className={`p-6 border-b ${alert.status === 'UNREAD' ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
                   <div className="flex justify-between items-start mb-4">
                     <h4 className="font-bold flex items-center gap-2 text-rose-700">
                       <ServerCrash className="w-5 h-5" />
