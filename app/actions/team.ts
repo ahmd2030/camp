@@ -168,6 +168,7 @@ export async function chatWithTeamMember(roleId: string, message: string, histor
     }
 
     const aiResponseText = responseMessage?.content || 'عذراً، لا يمكنني الإجابة الآن.';
+    console.log("Raw AI Response:", aiResponseText);
 
     // Save AI response to Firestore
     await addDoc(collection(db, 'team_chats'), {

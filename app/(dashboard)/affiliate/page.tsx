@@ -92,9 +92,11 @@ export default function AffiliatePage() {
               setPendingOpportunity({ niche: data.niche, productName: data.productName });
               setChatHistory(prev => [...prev, { role: 'assistant', content: `لقد وجدت فرصة ممتازة!\n\n**المجال:** ${data.niche}\n**المنتج:** ${data.productName}\n**السبب:** ${data.reason}` }]);
             } else {
+               window.alert('السيرفر رد بنجاح ولكن ببيانات لا تحتوي JSON: ' + JSON.stringify(res));
                setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
             }
           } catch (err) {
+            window.alert('السيرفر رد بنجاح ولكن فشل تحليل JSON: ' + JSON.stringify(res));
             setChatHistory(prev => [...prev, { role: 'assistant', content: res.response! }]);
           }
         } else {
