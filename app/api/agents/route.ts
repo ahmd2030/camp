@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { logSmartError } from '@/app/actions/monitor';
+
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = "openai/gpt-4o-mini";
 
@@ -104,6 +106,7 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("Error in agents chain:", error);
+    await logSmartError("Autopilot Error: " + (error instanceof Error ? error.message : "Unknown error"));
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
