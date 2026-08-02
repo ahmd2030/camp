@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import { 
   Send,
   Target,
@@ -374,7 +375,7 @@ export default function DashboardHome() {
                         <div className="flex items-center gap-2">
                           <span className="text-lg leading-none">💡</span>
                           <span className="font-bold text-slate-800 text-sm">
-                            المنصة المقترحة: <span className="text-amber-600">{req.platform}</span>
+                            المنصة المقترحة: <Link href="/networks" className="text-amber-600 hover:text-amber-700 underline underline-offset-4 decoration-amber-300 hover:decoration-amber-500 transition-colors cursor-pointer">{req.platform}</Link>
                           </span>
                         </div>
                         <span className="text-xs text-slate-500 mr-7">(ابحث عنها في بنك الروابط)</span>

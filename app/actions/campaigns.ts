@@ -11,8 +11,12 @@ export async function queueAffiliateLead(lead: any): Promise<{ success: boolean;
     const { logSmartError } = await import('./monitor');
 
     // 1. Ask CMO to suggest affiliate platform
-    const platformPrompt = `أنت مدير الشراكات (CMO).
-المهمة: اقترح أفضل منصة تسويق بالعمولة (مثل Admitad, ShareASale, أو منصات محلية/عالمية تمنح عمولات) تناسب مجال هذه الشركة: ${lead.businessName}.
+    const platformPrompt = `أنت خبير شراكات استراتيجي (CMO).
+المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح منصة إحالة منطقية وحقيقية تناسب مجالها تماماً.
+- للشركات الخدمية والمحلية (مثل النظافة، الصيانة): اقترح برامج تسويق B2B، أنظمة إدارة CRM، أو أدوات مالية.
+- للتجارة الإلكترونية: اقترح منصات مثل Admitad, ArabyAds, أو ShareASale.
+يُمنع منعاً باتاً تكرار نفس المنصة لكل العملاء. فكر بعمق.
+المجال: ${lead.businessName}
 أرجع النتيجة بصيغة JSON فقط: {"platform": "اسم المنصة المقترحة"}`;
     
     let platformName = "ClickBank";
