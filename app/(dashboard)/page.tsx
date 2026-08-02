@@ -372,6 +372,14 @@ export default function DashboardHome() {
                     
                     {req.platform && (
                       <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 flex flex-col gap-1 shadow-sm">
+                        {req.suggestedProductType && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg leading-none">📦</span>
+                            <span className="font-bold text-slate-800 text-sm">
+                              المنتج المطلوب البحث عنه: <span className="text-indigo-600">{req.suggestedProductType}</span>
+                            </span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2">
                           <span className="text-lg leading-none">💡</span>
                           <span className="font-bold text-slate-800 text-sm">

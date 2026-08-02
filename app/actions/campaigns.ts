@@ -10,17 +10,18 @@ export async function queueAffiliateLead(lead: any): Promise<{ success: boolean;
     const { chatWithTeamMember } = await import('./team');
     const { logSmartError } = await import('./monitor');
 
-    // 1. Ask CMO to suggest affiliate platform
+    // 1. Ask CMO to suggest affiliate platform and product type
     const platformPrompt = `أنت خبير شراكات استراتيجي (CMO).
-المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح منصة إحالة منطقية وحقيقية تناسب مجالها تماماً، بالإضافة لرابط الموقع الرسمي للمنصة.
+المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح منصة إحالة منطقية وحقيقية تناسب مجالها تماماً، بالإضافة لرابط الموقع الرسمي للمنصة، ونوع المنتج أو الخدمة التي يجب الترويج لها وتناسب هذه الشركة.
 - للشركات الخدمية والمحلية (مثل النظافة، الصيانة): اقترح برامج تسويق B2B، أنظمة إدارة CRM، أو أدوات مالية.
 - للتجارة الإلكترونية: اقترح منصات مثل Admitad, ArabyAds, أو ShareASale.
 يُمنع منعاً باتاً تكرار نفس المنصة لكل العملاء. فكر بعمق.
 المجال: ${lead.businessName}
-أرجع النتيجة بصيغة JSON فقط: {"platform": "اسم المنصة المقترحة", "url": "https://..."}`;
+أرجع النتيجة بصيغة JSON فقط: {"platform": "اسم المنصة المقترحة", "url": "https://...", "suggestedProductType": "نوع المنتج أو الخدمة"}`;
     
     let platformName = "ClickBank";
     let platformUrl = "https://www.clickbank.com";
+    let suggestedProductType = "خدمات B2B / أدوات تسويق";
     try {
       const chatRes = await chatWithTeamMember('cmo', platformPrompt + " \nأرجع النتيجة بصيغة JSON فقط.");
       if (chatRes.success && chatRes.response) {
@@ -28,6 +29,7 @@ export async function queueAffiliateLead(lead: any): Promise<{ success: boolean;
         const parsed = JSON.parse(cleanText);
         if (parsed.platform) platformName = parsed.platform;
         if (parsed.url) platformUrl = parsed.url;
+        if (parsed.suggestedProductType) suggestedProductType = parsed.suggestedProductType;
       }
     } catch (e) {
       console.error("Failed to get platform suggestion:", e);
@@ -55,6 +57,7 @@ export async function queueAffiliateLead(lead: any): Promise<{ success: boolean;
       aiDraftResponse: pitch,
       platform: platformName,
       platformUrl: platformUrl,
+      suggestedProductType: suggestedProductType,
       createdAt: Timestamp.now()
     });
 
