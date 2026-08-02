@@ -368,6 +368,18 @@ export default function DashboardHome() {
                     <p className="text-slate-700 text-sm font-medium line-clamp-3 mb-4">
                       {req.customerRequest}
                     </p>
+                    
+                    {req.platform && (
+                      <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 flex flex-col gap-1 shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg leading-none">💡</span>
+                          <span className="font-bold text-slate-800 text-sm">
+                            المنصة المقترحة: <span className="text-amber-600">{req.platform}</span>
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-500 mr-7">(ابحث عنها في بنك الروابط)</span>
+                      </div>
+                    )}
                     <div className="relative">
                       <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
                         <LinkIcon className="w-4 h-4" />

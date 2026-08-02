@@ -12,7 +12,7 @@ export async function queueAffiliateLead(lead: any): Promise<{ success: boolean;
 
     // 1. Ask CMO to suggest affiliate platform
     const platformPrompt = `أنت مدير الشراكات (CMO).
-المهمة: اقترح أفضل منصة تسويق بالعمولة (مثل Amazon Associates, ClickBank, ShareASale) لمجال: ${lead.businessName}.
+المهمة: اقترح أفضل منصة تسويق بالعمولة (مثل Admitad, ShareASale, أو منصات محلية/عالمية تمنح عمولات) تناسب مجال هذه الشركة: ${lead.businessName}.
 أرجع النتيجة بصيغة JSON فقط: {"platform": "اسم المنصة المقترحة"}`;
     
     let platformName = "ClickBank";
