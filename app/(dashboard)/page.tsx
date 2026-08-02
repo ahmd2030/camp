@@ -60,14 +60,22 @@ export default function DashboardHome() {
       setLoading(false);
     });
 
-    // Fetch Pending Requests
-    const qPending = query(collection(db, 'requests'), where('status', '==', 'PENDING_AFFILIATE'), orderBy('createdAt', 'desc'));
+    // Fetch Pending Requests (remove orderBy to avoid Firebase index error, sort locally)
+    const qPending = query(collection(db, 'requests'), where('status', '==', 'PENDING_AFFILIATE'));
     const unsubscribePending = onSnapshot(qPending, (snapshot) => {
       const fetched: any[] = [];
       snapshot.forEach((doc) => {
         fetched.push({ id: doc.id, ...doc.data() });
       });
+      // Sort locally by createdAt desc
+      fetched.sort((a, b) => {
+        const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return tB - tA;
+      });
       setPendingRequests(fetched);
+    }, (error) => {
+      console.error("Error fetching pending requests:", error);
     });
 
     const unsubscribeTotal = onSnapshot(collection(db, 'sent_leads'), (snapshot) => {
