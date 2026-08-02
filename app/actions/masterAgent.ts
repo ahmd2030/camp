@@ -33,26 +33,38 @@ ${JSON.stringify(niches.map(n => ({ id: n.id, title: n.title, status: n.status, 
   "strategyReport": "نص التقرير الاستراتيجي بصيغة ماركداون"
 }`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: 'POST',
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
-        response_format: { type: "json_object" },
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
+    const { chatWithTeamMember, continueChatWithSearch } = await import('@/app/actions/team');
+    const { logSmartError } = await import('@/app/actions/monitor');
 
-    if (!response.ok) {
-      throw new Error(`OpenRouter Error: ${response.status}`);
+    let finalResponseText = '';
+
+    try {
+      const chatRes = await chatWithTeamMember('master_agent', prompt);
+      if (!chatRes.success) {
+        throw new Error(chatRes.error || "Server Error from Master Agent");
+      }
+
+      finalResponseText = chatRes.response || '';
+
+      if (chatRes.isSearching) {
+        const fullHistoryForSearch = [{ role: 'user' as const, content: prompt }];
+        const searchRes = await continueChatWithSearch('master_agent', fullHistoryForSearch, chatRes.assistantMessage, chatRes.query || '');
+        if (!searchRes.success) {
+          throw new Error(searchRes.error || "Server Error during search");
+        }
+        finalResponseText = searchRes.response || '';
+      }
+
+      if (!finalResponseText) {
+        throw new Error("لم يرجع المستشار الاستراتيجي أي بيانات.");
+      }
+    } catch (chatError: any) {
+      await logSmartError("Autopilot (MasterAgent) Error: " + (chatError.message || "Unknown error"));
+      throw chatError;
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
+    const cleanText = finalResponseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+    const parsed = JSON.parse(cleanText);
 
     // Process rejections
     if (parsed.rejectedNiches && parsed.rejectedNiches.length > 0) {

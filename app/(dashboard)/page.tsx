@@ -126,7 +126,7 @@ export default function DashboardHome() {
       // 1. HUNTING
       const nichesResult = await getAndFillNiches();
       if (!nichesResult.success || !nichesResult.niches || nichesResult.niches.length === 0) {
-        throw new Error('فشل العثور على مجالات جديدة.');
+        throw new Error(nichesResult.error || 'فشل العثور على مجالات جديدة.');
       }
       // Pick the first one
       const targetNiche = nichesResult.niches[0];

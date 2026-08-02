@@ -4,9 +4,9 @@ import { getActiveNiches, addNiches, SuggestedNiche } from "@/services/niches";
 
 export async function getAndFillNiches(): Promise<{ success: boolean; niches?: SuggestedNiche[]; error?: string }> {
   try {
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      return { success: false, error: 'مفتاح GOOGLE_GENERATIVE_AI_API_KEY مفقود في إعدادات Vercel. يرجى إضافته.' };
+      return { success: false, error: 'مفتاح OPENROUTER_API_KEY مفقود في إعدادات Vercel. يرجى إضافته.' };
     }
 
     // 1. Fetch active niches
@@ -41,28 +41,39 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 4. expectedCommission: حجم العمولة المتوقع (مثل: "عالية جداً"، "متوسطة")
 5. painPoint: نقطة الألم الحالية للتاجر في هذا المجال (سطر واحد)`;
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: 'POST',
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-4o-mini",
-          response_format: { type: "json_object" },
-          messages: [{ role: "user", content: prompt + " \nأرجع النتيجة بصيغة JSON فقط تحتوي على مصفوفة niches. لا تضف أي نصوص أو شروحات أخرى." }]
-        })
-      });
+    const { chatWithTeamMember, continueChatWithSearch } = await import('@/app/actions/team');
+    const { logSmartError } = await import('@/app/actions/monitor');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `OpenRouter API Error: ${response.status} ${response.statusText}`);
+    let finalResponseText = '';
+    
+    try {
+      const chatRes = await chatWithTeamMember('analyst', prompt + " \nأرجع النتيجة بصيغة JSON فقط تحتوي على مصفوفة niches.");
+      if (!chatRes.success) {
+        throw new Error(chatRes.error || "Server Error from Analyst");
       }
 
-      const data = await response.json();
-      const textResponse = data.choices?.[0]?.message?.content || '{}';
-      const cleanText = textResponse.replace(/```json/gi, '').replace(/```/gi, '').trim();
-      const object = JSON.parse(cleanText);
+      finalResponseText = chatRes.response || '';
+
+      if (chatRes.isSearching) {
+        // Handle search
+        const fullHistoryForSearch = [{ role: 'user' as const, content: prompt }];
+        const searchRes = await continueChatWithSearch('analyst', fullHistoryForSearch, chatRes.assistantMessage, chatRes.query || '');
+        if (!searchRes.success) {
+          throw new Error(searchRes.error || "Server Error during search");
+        }
+        finalResponseText = searchRes.response || '';
+      }
+
+      if (!finalResponseText) {
+        throw new Error("لم يرجع المحلل أي بيانات نصية.");
+      }
+    } catch (chatError: any) {
+      await logSmartError("Autopilot (Analyst) Error: " + (chatError.message || "Unknown error"));
+      throw chatError;
+    }
+
+    const cleanText = finalResponseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+    const object = JSON.parse(cleanText);
 
     const newNichesRaw = object.niches || [];
     if (newNichesRaw.length > 0) {
