@@ -233,10 +233,10 @@ export default function NetworksPage() {
                 href={network.url} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className={\`block bg-white p-6 rounded-3xl border-2 \${network.borderColor} \${network.hoverColor} transition-all shadow-sm hover:shadow-md h-full group\`}
+                className={`block bg-white p-6 rounded-3xl border-2 ${network.borderColor} ${network.hoverColor} transition-all shadow-sm hover:shadow-md h-full group`}
               >
                 <div className="flex items-center justify-between mb-6">
-                  <div className={\`p-4 rounded-2xl \${network.color}\`}>
+                  <div className={`p-4 rounded-2xl ${network.color}`}>
                     {network.icon}
                   </div>
                   <ExternalLink className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors" />
