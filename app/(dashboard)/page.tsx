@@ -155,23 +155,26 @@ export default function DashboardHome() {
       }
       setAutopilotProgress(75);
 
-      // 4. SENDING
+      // 4. PREPARING & QUEUEING
       setAutopilotState('SENDING');
       const leadsToProcess = scrapeResult.leads;
       let sentCount = 0;
       
       for (let i = 0; i < leadsToProcess.length; i++) {
         const lead = leadsToProcess[i];
-        setAutopilotMessage(`جاري الإرسال (${i + 1}/${leadsToProcess.length}) للعميل: ${lead.businessName}... 🚀`);
+        setAutopilotMessage(`جاري تحضير الفرصة (${i + 1}/${leadsToProcess.length}) لعميل: ${lead.businessName}... 🚀`);
         
         try {
-          const res = await processCampaignLead(lead);
+          // Import dynamically if needed, or rely on top-level import
+          const { queueAffiliateLead } = await import('@/app/actions/campaigns');
+          const res = await queueAffiliateLead(lead);
+          
           if (res.success && lead.id) {
-            await updateDoc(doc(db, 'leads', lead.id), { status: 'SENT' });
+            await updateDoc(doc(db, 'leads', lead.id), { status: 'PENDING_AFFILIATE' });
             sentCount++;
           }
         } catch (err) {
-          console.warn('Failed to send to', lead.businessName);
+          console.warn('Failed to queue lead', lead.businessName);
         }
         
         // 2 seconds rate limit
@@ -182,8 +185,8 @@ export default function DashboardHome() {
 
       setAutopilotProgress(100);
       setAutopilotState('DONE');
-      setAutopilotMessage(`تم إرسال ${sentCount} رسائل تسويقية بنجاح للمجال المعتمد! 🎉`);
-      toast.success('اكتملت دورة الطيار الآلي بنجاح!');
+      setAutopilotMessage(`تم تحويل ${sentCount} فرص لـ (مهام قيد الانتظار) بنجاح! يرجى إدخال روابطك.`);
+      toast.success('اكتملت دورة الطيار الآلي وتم إيقاف الإرسال المباشر للفرص!');
 
     } catch (e: any) {
       setAutopilotState('ERROR');

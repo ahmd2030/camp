@@ -5,6 +5,59 @@ import { collection, addDoc, Timestamp, query, where, getDocs, updateDoc, doc } 
 import { generatePitch } from './scraper';
 import { sendTestEmail } from './sendEmail';
 
+export async function queueAffiliateLead(lead: any): Promise<{ success: boolean; message: string; error?: string }> {
+  try {
+    const { chatWithTeamMember } = await import('./team');
+    const { logSmartError } = await import('./monitor');
+
+    // 1. Ask CMO to suggest affiliate platform
+    const platformPrompt = `أنت مدير الشراكات (CMO).
+المهمة: اقترح أفضل منصة تسويق بالعمولة (مثل Amazon Associates, ClickBank, ShareASale) لمجال: ${lead.businessName}.
+أرجع النتيجة بصيغة JSON فقط: {"platform": "اسم المنصة المقترحة"}`;
+    
+    let platformName = "ClickBank";
+    try {
+      const chatRes = await chatWithTeamMember('cmo', platformPrompt + " \nأرجع النتيجة بصيغة JSON فقط.");
+      if (chatRes.success && chatRes.response) {
+        const cleanText = chatRes.response.replace(/```json/gi, '').replace(/```/gi, '').trim();
+        const parsed = JSON.parse(cleanText);
+        if (parsed.platform) platformName = parsed.platform;
+      }
+    } catch (e) {
+      console.error("Failed to get platform suggestion:", e);
+    }
+
+    // 2. Prepare the email draft with placeholder
+    let pitch = lead.aiPitch;
+    if (!pitch) {
+      const generated = await generatePitch(lead);
+      if (generated && generated.aiPitch) pitch = generated.aiPitch;
+    }
+    
+    // Replace hardcoded referral link with placeholder if present, or just append it
+    if (pitch.includes('[رابط الإحالة]')) {
+      pitch = pitch.replace(/\[رابط الإحالة\]/g, '[INSERT_AFFILIATE_LINK_HERE]');
+    } else {
+      pitch += '\n\n[INSERT_AFFILIATE_LINK_HERE]';
+    }
+
+    // 3. Save to requests collection
+    await addDoc(collection(db, 'requests'), {
+      status: 'PENDING_AFFILIATE',
+      customerEmail: lead.email || "contact@example.com",
+      customerRequest: 'تم اصطياد هذه الفرصة عبر الطيار الآلي لشركة: ' + lead.businessName,
+      aiDraftResponse: pitch,
+      platform: platformName,
+      createdAt: Timestamp.now()
+    });
+
+    return { success: true, message: 'تم تحويل المهمة لقسم قيد الانتظار بنجاح' };
+  } catch (error: any) {
+    console.error("Error queueing affiliate lead:", error);
+    return { success: false, message: 'حدث خطأ أثناء تحويل الفرصة.', error: error.message };
+  }
+}
+
 export async function processCampaignLead(lead: any): Promise<{ success: boolean; message: string; error?: string }> {
   try {
     // 1. Generate Pitch (AI Orchestration)
