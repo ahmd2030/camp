@@ -375,10 +375,10 @@ export default function DashboardHome() {
                         <div className="flex items-center gap-2">
                           <span className="text-lg leading-none">💡</span>
                           <span className="font-bold text-slate-800 text-sm">
-                            المنصة المقترحة: <Link href="/networks" className="text-amber-600 hover:text-amber-700 underline underline-offset-4 decoration-amber-300 hover:decoration-amber-500 transition-colors cursor-pointer">{req.platform}</Link>
+                            المنصة المقترحة: <a href={req.platformUrl || "#"} target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:text-amber-700 underline underline-offset-4 decoration-amber-300 hover:decoration-amber-500 transition-colors cursor-pointer">{req.platform}</a>
                           </span>
                         </div>
-                        <span className="text-xs text-slate-500 mr-7">(ابحث عنها في بنك الروابط)</span>
+                        <span className="text-xs text-slate-500 mr-7">(انقر للذهاب لموقع المنصة والتسجيل)</span>
                       </div>
                     )}
                     <div className="relative">

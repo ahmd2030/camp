@@ -12,20 +12,22 @@ export async function queueAffiliateLead(lead: any): Promise<{ success: boolean;
 
     // 1. Ask CMO to suggest affiliate platform
     const platformPrompt = `أنت خبير شراكات استراتيجي (CMO).
-المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح منصة إحالة منطقية وحقيقية تناسب مجالها تماماً.
+المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح منصة إحالة منطقية وحقيقية تناسب مجالها تماماً، بالإضافة لرابط الموقع الرسمي للمنصة.
 - للشركات الخدمية والمحلية (مثل النظافة، الصيانة): اقترح برامج تسويق B2B، أنظمة إدارة CRM، أو أدوات مالية.
 - للتجارة الإلكترونية: اقترح منصات مثل Admitad, ArabyAds, أو ShareASale.
 يُمنع منعاً باتاً تكرار نفس المنصة لكل العملاء. فكر بعمق.
 المجال: ${lead.businessName}
-أرجع النتيجة بصيغة JSON فقط: {"platform": "اسم المنصة المقترحة"}`;
+أرجع النتيجة بصيغة JSON فقط: {"platform": "اسم المنصة المقترحة", "url": "https://..."}`;
     
     let platformName = "ClickBank";
+    let platformUrl = "https://www.clickbank.com";
     try {
       const chatRes = await chatWithTeamMember('cmo', platformPrompt + " \nأرجع النتيجة بصيغة JSON فقط.");
       if (chatRes.success && chatRes.response) {
         const cleanText = chatRes.response.replace(/```json/gi, '').replace(/```/gi, '').trim();
         const parsed = JSON.parse(cleanText);
         if (parsed.platform) platformName = parsed.platform;
+        if (parsed.url) platformUrl = parsed.url;
       }
     } catch (e) {
       console.error("Failed to get platform suggestion:", e);
@@ -52,6 +54,7 @@ export async function queueAffiliateLead(lead: any): Promise<{ success: boolean;
       customerRequest: 'تم اصطياد هذه الفرصة عبر الطيار الآلي لشركة: ' + lead.businessName,
       aiDraftResponse: pitch,
       platform: platformName,
+      platformUrl: platformUrl,
       createdAt: Timestamp.now()
     });
 
