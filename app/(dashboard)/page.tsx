@@ -13,7 +13,11 @@ import {
   PlaneTakeoff,
   ShieldCheck,
   Search,
-  Rocket
+  Rocket,
+  Link as LinkIcon,
+  User,
+  MessageSquare,
+  Bot
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, limit, where, updateDoc, doc } from 'firebase/firestore';
@@ -34,6 +38,11 @@ export default function DashboardHome() {
   const [meetingsCount, setMeetingsCount] = useState(0);
   const [recentMeetings, setRecentMeetings] = useState<any[]>([]);
 
+  // Pending Tasks State
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [affiliateLinks, setAffiliateLinks] = useState<Record<string, string>>({});
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
   // Autopilot State
   const [autopilotState, setAutopilotState] = useState<'IDLE' | 'HUNTING' | 'FILTERING' | 'SCRAPING' | 'SENDING' | 'DONE' | 'ERROR'>('IDLE');
   const [autopilotMessage, setAutopilotMessage] = useState('جاهز للانطلاق');
@@ -49,6 +58,16 @@ export default function DashboardHome() {
       });
       setRecentActivity(recent);
       setLoading(false);
+    });
+
+    // Fetch Pending Requests
+    const qPending = query(collection(db, 'requests'), where('status', '==', 'PENDING_AFFILIATE'), orderBy('createdAt', 'desc'));
+    const unsubscribePending = onSnapshot(qPending, (snapshot) => {
+      const fetched: any[] = [];
+      snapshot.forEach((doc) => {
+        fetched.push({ id: doc.id, ...doc.data() });
+      });
+      setPendingRequests(fetched);
     });
 
     const unsubscribeTotal = onSnapshot(collection(db, 'sent_leads'), (snapshot) => {
@@ -89,6 +108,7 @@ export default function DashboardHome() {
 
     return () => {
       unsubscribe();
+      unsubscribePending();
       unsubscribeTotal();
       unsubscribeMeetings();
       unsubscribeMeetingsTotal();
@@ -172,6 +192,57 @@ export default function DashboardHome() {
     }
   };
 
+  const handleLinkChange = (id: string, value: string) => {
+    setAffiliateLinks(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleApproveAndSend = async (req: any) => {
+    const link = affiliateLinks[req.id];
+    
+    if (!link || link.trim() === '') {
+      toast.error('يرجى إدخال رابط العمولة أولاً');
+      return;
+    }
+
+    setProcessingId(req.id);
+    
+    try {
+      const finalEmailContent = req.aiDraftResponse.replace(/\[INSERT_AFFILIATE_LINK_HERE\]/g, link);
+      
+      const response = await fetch('/api/send-approval', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: req.id,
+          customerEmail: req.customerEmail,
+          finalEmailContent: finalEmailContent
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'فشل الاتصال بالخادم');
+      }
+
+      toast.success('تم إرسال الإيميل بنجاح واختفت المهمة!');
+      
+      setAffiliateLinks(prev => {
+        const next = { ...prev };
+        delete next[req.id];
+        return next;
+      });
+      
+    } catch (error: any) {
+      console.error('Error approving request:', error);
+      toast.error(error.message || 'حدث خطأ أثناء اعتماد الطلب وإرساله');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const timeAgo = (dateVal: any) => {
     if (!dateVal) return 'غير معروف';
     let date = dateVal?.toDate ? dateVal.toDate() : new Date(dateVal);
@@ -252,6 +323,74 @@ export default function DashboardHome() {
           <PlaneTakeoff className="w-32 h-32 text-orange-400 relative z-10 opacity-80" />
         </div>
       </motion.div>
+
+      {/* Pending Tasks Section */}
+      {pendingRequests.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <Target className="w-6 h-6 text-indigo-500" />
+            <h2 className="text-2xl font-bold text-slate-800">مهام قيد الانتظار (روابط مطلوبة)</h2>
+            <span className="bg-indigo-100 text-indigo-700 py-1 px-3 rounded-full text-sm font-bold">
+              {pendingRequests.length}
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <AnimatePresence>
+              {pendingRequests.map((req) => (
+                <motion.div
+                  key={req.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:border-indigo-200 transition-colors"
+                >
+                  <div className="p-5 flex-1">
+                    <div className="flex items-center gap-2 font-mono text-xs text-indigo-600 bg-indigo-50 w-fit px-2 py-1 rounded-full mb-3">
+                      <User className="w-3 h-3" />
+                      {req.customerEmail}
+                    </div>
+                    <p className="text-slate-700 text-sm font-medium line-clamp-3 mb-4">
+                      {req.customerRequest}
+                    </p>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                        <LinkIcon className="w-4 h-4" />
+                      </div>
+                      <input 
+                        type="url" 
+                        value={affiliateLinks[req.id] || ''}
+                        onChange={(e) => handleLinkChange(req.id, e.target.value)}
+                        placeholder="الصق رابط الإحالة هنا..." 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-9 pl-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-left font-mono" 
+                        dir="ltr"
+                      />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-slate-50 border-t border-slate-100">
+                    <button 
+                      onClick={() => handleApproveAndSend(req)}
+                      disabled={processingId === req.id}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {processingId === req.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Rocket className="w-4 h-4" />
+                      )}
+                      إقلاع 🚀
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

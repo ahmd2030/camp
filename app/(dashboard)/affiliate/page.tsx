@@ -22,7 +22,7 @@ export default function AffiliatePage() {
   const [chatInput, setChatInput] = useState('');
   const [isConsulting, setIsConsulting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [pendingOpportunity, setPendingOpportunity] = useState<{ niche: string, productName: string } | null>(null);
+  const [pendingOpportunity, setPendingOpportunity] = useState<{ niche: string, productName: string, platform?: string } | null>(null);
   const [takeoffLink, setTakeoffLink] = useState('');
   const [takeoffList, setTakeoffList] = useState('');
   const [isTakingOff, setIsTakingOff] = useState(false);
@@ -73,7 +73,7 @@ export default function AffiliatePage() {
     let fullPrompt = `أنا أسألك بصفتك مستشار التسويق بالعمولة (Affiliate Marketing). ساعدني في هذا الطلب: ${userMessage}`;
     
     if (isDiscovery) {
-      fullPrompt = `أنت مدير تسويق Affiliate محترف. ابحث واقترح لي فوراً منتجاً واحداً محدداً ومربحاً جداً في الوقت الحالي. أجب حصراً بصيغة JSON كالتالي: {"niche": "اسم المجال", "productName": "اسم المنتج", "reason": "سبب اختيارك له باختصار"}. لا تضف أي نص آخر خارج الـ JSON.`;
+      fullPrompt = `أنت مدير تسويق Affiliate محترف. ابحث واقترح لي فوراً منتجاً واحداً محدداً ومربحاً جداً في الوقت الحالي. أجب حصراً بصيغة JSON كالتالي: {"niche": "اسم المجال", "productName": "اسم المنتج", "platform": "اسم المنصة المقترحة كـ Amazon أو ClickBank", "reason": "سبب اختيارك له باختصار"}. لا تضف أي نص آخر خارج الـ JSON.`;
     }
 
     try {
@@ -105,8 +105,8 @@ export default function AffiliatePage() {
           const match = finalResponse.match(/\{[\s\S]*\}/);
           if (match) {
             const data = JSON.parse(match[0]);
-            setPendingOpportunity({ niche: data.niche, productName: data.productName });
-            setChatHistory(prev => [...prev, { role: 'assistant', content: `لقد وجدت فرصة ممتازة!\n\n**المجال:** ${data.niche}\n**المنتج:** ${data.productName}\n**السبب:** ${data.reason}` }]);
+            setPendingOpportunity({ niche: data.niche, productName: data.productName, platform: data.platform });
+            setChatHistory(prev => [...prev, { role: 'assistant', content: `لقد وجدت فرصة ممتازة!\n\n**المجال:** ${data.niche}\n**المنتج:** ${data.productName}\n**المنصة المقترحة:** ${data.platform || 'غير محدد'}\n**السبب:** ${data.reason}` }]);
           } else {
              window.alert('السيرفر رد بنجاح ولكن ببيانات لا تحتوي JSON: ' + finalResponse);
              setChatHistory(prev => [...prev, { role: 'assistant', content: finalResponse }]);
@@ -362,7 +362,10 @@ export default function AffiliatePage() {
                           <Target className="w-4 h-4 text-rose-500" />
                           فرصة معلقة: {pendingOpportunity.productName}
                         </h4>
-                        <p className="text-xs text-slate-500">المجال: {pendingOpportunity.niche}</p>
+                        <p className="text-xs text-slate-500 mt-1">المجال: {pendingOpportunity.niche}</p>
+                        {pendingOpportunity.platform && (
+                          <p className="text-xs text-indigo-600 font-semibold mt-1">المنصة المقترحة: {pendingOpportunity.platform}</p>
+                        )}
                       </div>
                       <button onClick={() => setPendingOpportunity(null)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
                     </div>

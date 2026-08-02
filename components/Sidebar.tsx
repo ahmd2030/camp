@@ -17,7 +17,8 @@ import {
   BarChart3,
   Target,
   MessageSquare,
-  Activity
+  Activity,
+  Link
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -31,6 +32,7 @@ export default function Sidebar() {
     { name: 'الرادار المالي', href: '/analytics', icon: BarChart3 },
     { name: 'الحملات الجماعية', href: '/campaigns', icon: Rocket },
     { name: 'التسويق بالعمولة', href: '/affiliate', icon: Target },
+    { name: 'بنك الروابط', href: '/networks', icon: Link },
     { name: 'رادار الصيد', href: '/scraper', icon: LayoutDashboard },
     { name: 'استفسارات العملاء', href: '/inquiries', icon: Mail },
     { name: 'صندوق المصيدة', href: '/requests', icon: MessageSquare },
