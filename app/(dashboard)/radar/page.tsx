@@ -18,9 +18,10 @@ interface CampaignRequest {
   id: string;
   customerEmail: string;
   customerRequest: string;
+  productName?: string;
+  affiliateSignupUrl?: string;
   platform?: string;
   platformUrl?: string;
-  suggestedProductType?: string;
   status: string;
   opened?: boolean;
   openedAt?: any;
@@ -189,7 +190,7 @@ export default function RadarPage() {
                     </td>
                     <td className="py-4 px-6">
                       <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs font-bold">
-                        {record.platform || 'غير محدد'}
+                        {record.productName || record.platform || 'غير محدد'}
                       </span>
                     </td>
                     <td className="py-4 px-6">

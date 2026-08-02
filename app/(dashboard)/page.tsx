@@ -370,23 +370,21 @@ export default function DashboardHome() {
                       {req.customerRequest}
                     </p>
                     
-                    {req.platform && (
-                      <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 flex flex-col gap-1 shadow-sm">
-                        {req.suggestedProductType && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-lg leading-none">📦</span>
-                            <span className="font-bold text-slate-800 text-sm">
-                              المنتج المطلوب البحث عنه: <span className="text-indigo-600">{req.suggestedProductType}</span>
-                            </span>
-                          </div>
-                        )}
+                    {(req.productName || req.platform) && (
+                      <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 flex flex-col gap-3 shadow-sm">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg leading-none">💡</span>
+                          <span className="text-lg leading-none">📦</span>
                           <span className="font-bold text-slate-800 text-sm">
-                            المنصة المقترحة: <a href={req.platformUrl || "#"} target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:text-amber-700 underline underline-offset-4 decoration-amber-300 hover:decoration-amber-500 transition-colors cursor-pointer">{req.platform}</a>
+                            المنتج المحدد: <span className="text-indigo-600">{req.productName || req.platform}</span>
                           </span>
                         </div>
-                        <span className="text-xs text-slate-500 mr-7">(انقر للذهاب لموقع المنصة والتسجيل)</span>
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg leading-none">🔗</span>
+                          <span className="font-bold text-slate-800 text-sm">
+                            بوابة التسجيل: <a href={req.affiliateSignupUrl || req.platformUrl || "#"} target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:text-amber-700 underline underline-offset-4 decoration-amber-300 hover:decoration-amber-500 transition-colors cursor-pointer">انقر هنا للتسجيل كمسوق</a>
+                          </span>
+                        </div>
                       </div>
                     )}
                     <div className="relative">

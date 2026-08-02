@@ -10,29 +10,26 @@ export async function queueAffiliateLead(lead: any): Promise<{ success: boolean;
     const { chatWithTeamMember } = await import('./team');
     const { logSmartError } = await import('./monitor');
 
-    // 1. Ask CMO to suggest affiliate platform and product type
+    // 1. Ask CMO to suggest specific affiliate product and signup URL
     const platformPrompt = `أنت خبير شراكات استراتيجي (CMO).
-المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح منصة إحالة منطقية وحقيقية تناسب مجالها تماماً، بالإضافة لرابط الموقع الرسمي للمنصة، ونوع المنتج أو الخدمة التي يجب الترويج لها وتناسب هذه الشركة.
-- للشركات الخدمية والمحلية (مثل النظافة، الصيانة): اقترح برامج تسويق B2B، أنظمة إدارة CRM، أو أدوات مالية.
-- للتجارة الإلكترونية: اقترح منصات مثل Admitad, ArabyAds, أو ShareASale.
-يُمنع منعاً باتاً تكرار نفس المنصة لكل العملاء. فكر بعمق.
+المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح "منتج محدد أو خدمة بالاسم" تناسب مجالها تماماً للترويج لها بالعمولة (مثلاً: HubSpot CRM, Zoho Books, Shopify).
+يجب أيضاً توفير الرابط المباشر لصفحة التسجيل في برنامج الإحالة (Affiliate Program Sign-up URL) الخاص بهذا المنتج.
+يُمنع منعاً باتاً اقتراح منصات عامة مثل ClickBank أو ShareASale. نريد منتجاً محدداً برابط تسجيله المباشر.
 المجال: ${lead.businessName}
-أرجع النتيجة بصيغة JSON فقط: {"platform": "اسم المنصة المقترحة", "url": "https://...", "suggestedProductType": "نوع المنتج أو الخدمة"}`;
+أرجع النتيجة بصيغة JSON فقط: {"productName": "اسم المنتج المحدد", "affiliateSignupUrl": "https://..."}`;
     
-    let platformName = "ClickBank";
-    let platformUrl = "https://www.clickbank.com";
-    let suggestedProductType = "خدمات B2B / أدوات تسويق";
+    let productName = "HubSpot CRM";
+    let affiliateSignupUrl = "https://www.hubspot.com/partners/affiliates";
     try {
       const chatRes = await chatWithTeamMember('cmo', platformPrompt + " \nأرجع النتيجة بصيغة JSON فقط.");
       if (chatRes.success && chatRes.response) {
         const cleanText = chatRes.response.replace(/```json/gi, '').replace(/```/gi, '').trim();
         const parsed = JSON.parse(cleanText);
-        if (parsed.platform) platformName = parsed.platform;
-        if (parsed.url) platformUrl = parsed.url;
-        if (parsed.suggestedProductType) suggestedProductType = parsed.suggestedProductType;
+        if (parsed.productName) productName = parsed.productName;
+        if (parsed.affiliateSignupUrl) affiliateSignupUrl = parsed.affiliateSignupUrl;
       }
     } catch (e) {
-      console.error("Failed to get platform suggestion:", e);
+      console.error("Failed to get product suggestion:", e);
     }
 
     // 2. Prepare the email draft with placeholder
@@ -55,9 +52,8 @@ export async function queueAffiliateLead(lead: any): Promise<{ success: boolean;
       customerEmail: lead.email || "contact@example.com",
       customerRequest: 'تم اصطياد هذه الفرصة عبر الطيار الآلي لشركة: ' + lead.businessName,
       aiDraftResponse: pitch,
-      platform: platformName,
-      platformUrl: platformUrl,
-      suggestedProductType: suggestedProductType,
+      productName: productName,
+      affiliateSignupUrl: affiliateSignupUrl,
       createdAt: Timestamp.now()
     });
 
