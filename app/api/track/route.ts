@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 
 // 1x1 transparent GIF (base64)
 const TRANSPARENT_GIF = Buffer.from(
@@ -11,38 +11,44 @@ const TRANSPARENT_GIF = Buffer.from(
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const leadId = searchParams.get('lead_id');
+  const action = searchParams.get('action'); // 'open' or 'click'
+  const targetUrl = searchParams.get('url');
 
   if (leadId) {
     try {
-      // Find the sent_leads doc for this leadId
-      const q = query(
-        collection(db, 'sent_leads'),
-        where('leadId', '==', leadId)
-      );
-      
-      const snap = await getDocs(q);
-      
-      if (!snap.empty) {
-        // Update all matching sent_leads for this lead (usually just one, or the latest)
-        // Better to update the most recent one if multiple, but we can just update all for simplicity
-        const promises = snap.docs.map(d => {
-          if (!d.data().opened) {
-            return updateDoc(doc(db, 'sent_leads', d.id), {
+      const docRef = doc(db, 'requests', leadId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+
+        if (action === 'open') {
+          if (!data.opened) {
+            await updateDoc(docRef, {
               opened: true,
               openedAt: serverTimestamp()
             });
           }
-          return Promise.resolve();
-        });
-        
-        await Promise.all(promises);
+        } else if (action === 'click' && targetUrl) {
+          if (!data.clicked) {
+            await updateDoc(docRef, {
+              clicked: true,
+              clickedAt: serverTimestamp()
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Tracking Error:', error);
     }
   }
 
-  // Always return the transparent image
+  if (action === 'click' && targetUrl) {
+    // Redirect to the target URL
+    return NextResponse.redirect(targetUrl);
+  }
+
+  // Always return the transparent image for opens or missing actions
   return new NextResponse(TRANSPARENT_GIF, {
     headers: {
       'Content-Type': 'image/gif',

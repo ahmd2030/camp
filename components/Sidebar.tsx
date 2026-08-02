@@ -33,7 +33,7 @@ export default function Sidebar() {
     { name: 'الحملات الجماعية', href: '/campaigns', icon: Rocket },
     { name: 'التسويق بالعمولة', href: '/affiliate', icon: Target },
     { name: 'بنك الروابط', href: '/networks', icon: LinkIcon },
-    { name: 'رادار الصيد', href: '/scraper', icon: LayoutDashboard },
+    { name: 'رادار الصيد 🎯', href: '/radar', icon: Target },
     { name: 'استفسارات العملاء', href: '/inquiries', icon: Mail },
     { name: 'صندوق المصيدة', href: '/requests', icon: MessageSquare },
     { name: 'المجالات', href: '/niches', icon: Briefcase },

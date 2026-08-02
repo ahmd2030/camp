@@ -11,13 +11,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'البيانات المطلوبة غير مكتملة' }, { status: 400 });
     }
 
+    // Link Wrapping (Track Clicks)
+    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    
+    // Replace hrefs in the email with our tracking URL
+    let trackedEmailContent = finalEmailContent.replace(
+      /href=["'](https?:\/\/[^"']+)["']/gi,
+      (match: string, url: string) => {
+        const encodedUrl = encodeURIComponent(url);
+        return `href="${APP_URL}/api/track?action=click&lead_id=${id}&url=${encodedUrl}"`;
+      }
+    );
+
+    // Inject Tracking Pixel (Track Opens)
+    const trackingPixel = `<img src="${APP_URL}/api/track?action=open&lead_id=${id}" width="1" height="1" style="display:none;" alt="" />`;
+    
+    const emailHtml = `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
+        ${trackedEmailContent.replace(/\n/g, '<br>')}
+        ${trackingPixel}
+      </div>`;
+
     // إرسال الإيميل للعميل فعلياً عبر Resend
     const emailResult = await executeEmailAction(
       customerEmail,
       'رد على استفسارك',
-      `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
-        ${finalEmailContent.replace(/\n/g, '<br>')}
-      </div>`
+      emailHtml
     );
 
     if (!emailResult.success) {
