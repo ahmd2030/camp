@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     const errors: string[] = [];
 
     // Extract leads that need follow-up
-    const leadsToProcess = [];
+    const leadsToProcess: any[] = [];
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
       
