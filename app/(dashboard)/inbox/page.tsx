@@ -39,7 +39,7 @@ export default function InboxPage() {
       }));
 
       // Merge and sort
-      const allMessages = [...reqs, ...inqs].sort((a, b) => {
+      const allMessages = [...reqs, ...inqs].sort((a: any, b: any) => {
         const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
         const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
         return timeB - timeA;
