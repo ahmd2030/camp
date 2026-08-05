@@ -233,7 +233,8 @@ export default function DashboardHome() {
         body: JSON.stringify({
           id: req.id,
           customerEmail: req.customerEmail,
-          finalEmailContent: finalEmailContent
+          finalEmailContent: finalEmailContent,
+          affiliateLink: link
         })
       });
 

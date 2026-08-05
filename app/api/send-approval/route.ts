@@ -5,7 +5,8 @@ import { executeEmailAction } from '@/app/actions/email';
 
 export async function POST(req: Request) {
   try {
-    const { id, customerEmail, finalEmailContent } = await req.json();
+    const body = await req.json();
+    const { id, customerEmail, finalEmailContent, affiliateLink } = body;
 
     if (!id || !customerEmail || !finalEmailContent) {
       return NextResponse.json({ error: 'البيانات المطلوبة غير مكتملة' }, { status: 400 });
@@ -42,10 +43,10 @@ export async function POST(req: Request) {
       throw new Error(emailResult.error);
     }
 
-    // تحديث حالة الطلب في قاعدة البيانات إلى COMPLETED
     await updateDoc(doc(db, 'requests', id), {
       status: 'COMPLETED',
       finalResponse: finalEmailContent,
+      affiliateLink: affiliateLink || null,
       sentAt: new Date()
     });
 

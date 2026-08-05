@@ -28,6 +28,8 @@ interface CampaignRequest {
   clicked?: boolean;
   clickedAt?: any;
   sentAt?: any;
+  followUpSent?: boolean;
+  followUpSentAt?: any;
 }
 
 export default function RadarPage() {
@@ -194,7 +196,7 @@ export default function RadarPage() {
                       </span>
                     </td>
                     <td className="py-4 px-6">
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         {record.clicked ? (
                           <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1">
                             <MousePointerClick className="w-3 h-3" /> تم النقر
@@ -206,6 +208,11 @@ export default function RadarPage() {
                         ) : (
                           <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1">
                             <Clock className="w-3 h-3" /> بانتظار التفاعل
+                          </span>
+                        )}
+                        {record.followUpSent && (
+                          <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1">
+                            <Mail className="w-3 h-3" /> تم إرسال المتابعة
                           </span>
                         )}
                       </div>
