@@ -161,12 +161,12 @@ export default function DashboardHome() {
     try {
       // 1. CHOOSE NICHE
       const res = await getAndFillNiches();
-      if (!res.success || !res.nicheId) {
+      if (!res.success || !res.niches || res.niches.length === 0) {
         throw new Error('فشل في تحديد المجال.');
       }
       setAutopilotProgress(30);
 
-      const targetNiche = res.nicheObj;
+      const targetNiche = res.niches[0];
       setAutopilotState('FILTERING');
       setAutopilotMessage(`جاري تقييم الجانب الشرعي والربحي لمجال: ${targetNiche.title}...`);
 
