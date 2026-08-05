@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, CreditCard, Key, Shield, Zap, Database, Server, RefreshCcw, Eye, EyeOff } from 'lucide-react';
+import { Settings, CreditCard, Key, Shield, Zap, Database, Server, RefreshCcw, Eye, EyeOff, Activity } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
 export default function BillingPage() {
