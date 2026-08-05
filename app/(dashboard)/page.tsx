@@ -234,7 +234,9 @@ export default function DashboardHome() {
           id: req.id,
           customerEmail: req.customerEmail,
           finalEmailContent: finalEmailContent,
-          affiliateLink: link
+          affiliateLink: link,
+          productName: req.productName || '',
+          platformName: req.platform || ''
         })
       });
 

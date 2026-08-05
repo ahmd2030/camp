@@ -50,6 +50,17 @@ export async function POST(req: Request) {
       sentAt: new Date()
     });
 
+    // Auto-save to Vault if affiliate link exists
+    if (affiliateLink) {
+      const { collection, addDoc, Timestamp } = await import('firebase/firestore');
+      await addDoc(collection(db, 'vault'), {
+        productName: body.productName || 'منتج غير محدد',
+        platformName: body.platformName || 'منصة غير محددة',
+        affiliateLink: affiliateLink,
+        addedAt: Timestamp.now()
+      });
+    }
+
     return NextResponse.json({ message: 'تم إرسال الإيميل واعتماد الطلب بنجاح', success: true });
 
   } catch (error: any) {
