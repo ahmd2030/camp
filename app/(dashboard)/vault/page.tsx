@@ -38,7 +38,7 @@ export default function VaultPage() {
         const data = doc.data() as VaultItem;
         if (!uniqueLinks.has(data.affiliateLink)) {
           uniqueLinks.add(data.affiliateLink);
-          fetched.push({ id: doc.id, ...data });
+          fetched.push({ ...data, id: doc.id });
         }
       });
       
