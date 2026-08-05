@@ -45,9 +45,12 @@ export default function DashboardHome() {
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Autopilot State
-  const [autopilotState, setAutopilotState] = useState<'IDLE' | 'HUNTING' | 'FILTERING' | 'SCRAPING' | 'SENDING' | 'DONE' | 'ERROR'>('IDLE');
+  // Autopilot State
+  const [autopilotState, setAutopilotState] = useState<'IDLE' | 'HUNTING' | 'FILTERING' | 'SCRAPING' | 'SENDING' | 'DONE' | 'ERROR' | 'MASS_RUNNING'>('IDLE');
   const [autopilotMessage, setAutopilotMessage] = useState('جاهز للانطلاق');
   const [autopilotProgress, setAutopilotProgress] = useState(0);
+  const [massTargetCount, setMassTargetCount] = useState(5);
+  const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch dashboard stats
@@ -115,37 +118,60 @@ export default function DashboardHome() {
       setMeetingsCount(snapshot.size);
     });
 
+    // Listen to active mass campaign if any
+    let unsubscribeCampaign: any = null;
+    if (activeCampaignId) {
+      unsubscribeCampaign = onSnapshot(doc(db, 'mass_campaigns', activeCampaignId), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setAutopilotMessage(data.message);
+          
+          if (data.totalRequested > 0) {
+            setAutopilotProgress(Math.floor((data.processed / data.totalRequested) * 100));
+          }
+
+          if (data.status === 'COMPLETED') {
+            setAutopilotState('DONE');
+            toast.success('تم الانتهاء من الحملة الجماعية!');
+            setActiveCampaignId(null);
+          } else if (data.status === 'ERROR') {
+            setAutopilotState('ERROR');
+            toast.error('حدث خطأ في الحملة الجماعية');
+            setActiveCampaignId(null);
+          }
+        }
+      });
+    }
+
     return () => {
       unsubscribe();
       unsubscribePending();
       unsubscribeTotal();
       unsubscribeMeetings();
       unsubscribeMeetingsTotal();
+      if (unsubscribeCampaign) unsubscribeCampaign();
     };
-  }, []);
+  }, [activeCampaignId]);
 
   const runAutopilot = async () => {
-    if (autopilotState !== 'IDLE' && autopilotState !== 'DONE' && autopilotState !== 'ERROR') return;
-    
     setAutopilotState('HUNTING');
-    setAutopilotMessage('جاري الصيد والبحث عن مجال جديد... ⏳');
     setAutopilotProgress(10);
+    setAutopilotMessage('استدعاء الذكاء الاصطناعي لتحديد أفضل مجال مستهدف...');
 
     try {
-      // 1. HUNTING
-      const nichesResult = await getAndFillNiches();
-      if (!nichesResult.success || !nichesResult.niches || nichesResult.niches.length === 0) {
-        throw new Error(nichesResult.error || 'فشل العثور على مجالات جديدة.');
+      // 1. CHOOSE NICHE
+      const res = await getAndFillNiches();
+      if (!res.success || !res.nicheId) {
+        throw new Error('فشل في تحديد المجال.');
       }
-      // Pick the first one
-      const targetNiche = nichesResult.niches[0];
       setAutopilotProgress(30);
 
-      // 2. FILTERING
+      const targetNiche = res.nicheObj;
       setAutopilotState('FILTERING');
-      setAutopilotMessage(`جاري الفلترة الشرعية لمجال: ${targetNiche.title}... 🛡️`);
+      setAutopilotMessage(`جاري تقييم الجانب الشرعي والربحي لمجال: ${targetNiche.title}...`);
+
+      // 2. CHECK COMPLIANCE
       const authResult = await analyzeNichesPortfolio([targetNiche]);
-      
       if (!authResult.success) {
         throw new Error('فشل في فحص الأمان الشرعي.');
       }
@@ -154,48 +180,26 @@ export default function DashboardHome() {
       }
       setAutopilotProgress(50);
 
-      // 3. SCRAPING
-      setAutopilotState('SCRAPING');
-      setAutopilotMessage(`جاري جلب 5 عملاء في مجال: ${targetNiche.title}... 🎣`);
-      const scrapeResult = await automateScraping(targetNiche.searchQuery, 5);
+      // 3. START MASS CAMPAIGN API
+      setAutopilotState('MASS_RUNNING');
+      setAutopilotMessage(`تم إرسال المهمة للصاروخ الخلفي لاصطياد ${massTargetCount} عميل... 🚀`);
       
-      if (!scrapeResult.success || !scrapeResult.leads || scrapeResult.leads.length === 0) {
-        throw new Error('لم نتمكن من جلب عملاء لهذا المجال.');
-      }
-      setAutopilotProgress(75);
+      const apiRes = await fetch('/api/mass-campaign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          searchQuery: targetNiche.searchQuery,
+          targetCount: massTargetCount
+        })
+      });
 
-      // 4. PREPARING & QUEUEING
-      setAutopilotState('SENDING');
-      const leadsToProcess = scrapeResult.leads;
-      let sentCount = 0;
-      
-      for (let i = 0; i < leadsToProcess.length; i++) {
-        const lead = leadsToProcess[i];
-        setAutopilotMessage(`جاري تحضير الفرصة (${i + 1}/${leadsToProcess.length}) لعميل: ${lead.businessName}... 🚀`);
-        
-        try {
-          // Import dynamically if needed, or rely on top-level import
-          const { queueAffiliateLead } = await import('@/app/actions/campaigns');
-          const res = await queueAffiliateLead(lead);
-          
-          if (res.success && lead.id) {
-            await updateDoc(doc(db, 'leads', lead.id), { status: 'PENDING_AFFILIATE' });
-            sentCount++;
-          }
-        } catch (err) {
-          console.warn('Failed to queue lead', lead.businessName);
-        }
-        
-        // 2 seconds rate limit
-        if (i < leadsToProcess.length - 1) {
-          await new Promise(r => setTimeout(r, 2000));
-        }
+      const apiData = await apiRes.json();
+      if (!apiRes.ok) {
+        throw new Error(apiData.error || 'فشل إطلاق الحملة الجماعية');
       }
 
-      setAutopilotProgress(100);
-      setAutopilotState('DONE');
-      setAutopilotMessage(`تم تحويل ${sentCount} فرص لـ (مهام قيد الانتظار) بنجاح! يرجى إدخال روابطك.`);
-      toast.success('اكتملت دورة الطيار الآلي وتم إيقاف الإرسال المباشر للفرص!');
+      toast.success('تم انطلاق الحملة الجماعية بنجاح في الخلفية!');
+      setActiveCampaignId(apiData.campaignId);
 
     } catch (e: any) {
       setAutopilotState('ERROR');
@@ -299,6 +303,21 @@ export default function DashboardHome() {
           <p className="text-lg text-slate-600 mb-6">دع الذكاء الاصطناعي يبحث، يفلتر شرعياً، يجمع العملاء، ويرسل الحملات نيابة عنك.</p>
           
           <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-600">العدد:</span>
+              <select 
+                value={massTargetCount}
+                onChange={(e) => setMassTargetCount(Number(e.target.value))}
+                disabled={!['IDLE', 'DONE', 'ERROR'].includes(autopilotState)}
+                className="bg-white border border-slate-200 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 font-bold shadow-sm cursor-pointer"
+              >
+                <option value={5}>5 عملاء</option>
+                <option value={10}>10 عملاء</option>
+                <option value={20}>20 عميل</option>
+                <option value={50}>50 عميل (Mass)</option>
+                <option value={100}>100 عميل (Max)</option>
+              </select>
+            </div>
             <button 
               onClick={runAutopilot}
               disabled={!['IDLE', 'DONE', 'ERROR'].includes(autopilotState)}
