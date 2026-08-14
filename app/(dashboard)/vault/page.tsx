@@ -27,7 +27,7 @@ export default function VaultPage() {
 
   const fetchVault = async () => {
     try {
-      const q = query(collection(db, 'vault'), orderBy('addedAt', 'desc'));
+      const q = query(collection(db, 'vault'));
       const snapshot = await getDocs(q);
       
       // We will de-duplicate locally based on affiliateLink so the vault doesn't show the exact same link twice
@@ -41,7 +41,12 @@ export default function VaultPage() {
           fetched.push({ ...data, id: doc.id });
         }
       });
-      
+      // Sort locally
+      fetched.sort((a, b) => {
+        const timeA = a.addedAt?.toMillis ? a.addedAt.toMillis() : 0;
+        const timeB = b.addedAt?.toMillis ? b.addedAt.toMillis() : 0;
+        return timeB - timeA;
+      });
       setItems(fetched);
     } catch (error) {
       console.error('Error fetching vault:', error);

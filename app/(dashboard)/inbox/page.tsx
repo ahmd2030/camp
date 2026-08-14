@@ -21,7 +21,7 @@ export default function InboxPage() {
     setLoading(true);
     try {
       // Fetch Requests (from the old Trap/Requests page)
-      const requestsQ = query(collection(db, 'requests'), orderBy('createdAt', 'desc'));
+      const requestsQ = query(collection(db, 'requests'));
       const reqSnapshot = await getDocs(requestsQ);
       const reqs = reqSnapshot.docs.map(d => ({
         id: d.id,
@@ -30,7 +30,7 @@ export default function InboxPage() {
       }));
 
       // Fetch Inquiries (from the old Contact page)
-      const inquiriesQ = query(collection(db, 'contact_messages'), orderBy('createdAt', 'desc'));
+      const inquiriesQ = query(collection(db, 'contact_messages'));
       const inqSnapshot = await getDocs(inquiriesQ);
       const inqs = inqSnapshot.docs.map(d => ({
         id: d.id,

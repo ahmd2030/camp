@@ -33,16 +33,16 @@ export const getActiveNiches = async (): Promise<{ success: boolean; data?: Sugg
   try {
     const q = query(
       collection(db, "suggested_niches"),
-      where("status", "==", "ACTIVE"),
-      orderBy("createdAt", "desc"),
-      limit(10)
+      where("status", "==", "ACTIVE")
     );
     const querySnapshot = await getDocs(q);
     const data: SuggestedNiche[] = [];
     querySnapshot.forEach((doc) => {
       data.push({ id: doc.id, ...doc.data() } as SuggestedNiche);
     });
-    return { success: true, data };
+    // Sort locally
+    data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    return { success: true, data: data.slice(0, 10) };
   } catch (error: any) {
     // If the index is not created yet, it might throw an error. We can fallback to fetching all ACTIVE.
     if (error.message.includes('index')) {
@@ -78,14 +78,15 @@ export const updateNicheStatus = async (id: string, status: 'APPROVED' | 'REJECT
 export const getAllNiches = async (): Promise<{ success: boolean; data?: SuggestedNiche[]; error?: string }> => {
   try {
     const q = query(
-      collection(db, "suggested_niches"),
-      orderBy("createdAt", "desc")
+      collection(db, "suggested_niches")
     );
     const querySnapshot = await getDocs(q);
     const data: SuggestedNiche[] = [];
     querySnapshot.forEach((doc) => {
       data.push({ id: doc.id, ...doc.data() } as SuggestedNiche);
     });
+    // Sort locally
+    data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     return { success: true, data };
   } catch (error: any) {
     if (error.message.includes('index')) {
