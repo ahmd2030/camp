@@ -77,12 +77,11 @@ export default function ScoutPage() {
       lead.reviews
     ]);
 
-    // Combine headers and rows, and prepend sep=, so Excel understands the comma delimiter regardless of region
-    const csvContent = ["sep=,", headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    // Combine headers and rows with semicolon delimiter for Arabic Excel
+    const BOM = "\uFEFF";
+    const csvContent = BOM + [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
 
-    // Add UTF-8 BOM to fix Arabic rendering in MS Excel
-    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
-    const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
