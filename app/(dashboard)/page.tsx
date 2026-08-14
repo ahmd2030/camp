@@ -176,7 +176,7 @@ export default function DashboardHome() {
       // 1. CHOOSE NICHE
       const res = await getAndFillNiches();
       if (!res.success || !res.niches || res.niches.length === 0) {
-        throw new Error('فشل في تحديد المجال.');
+        throw new Error(res.error || 'فشل في تحديد المجال.');
       }
       setAutopilotProgress(30);
 
@@ -187,7 +187,7 @@ export default function DashboardHome() {
       // 2. CHECK COMPLIANCE
       const authResult = await analyzeNichesPortfolio([targetNiche]);
       if (!authResult.success) {
-        throw new Error('فشل في فحص الأمان الشرعي.');
+        throw new Error(authResult.error || 'فشل في فحص الأمان الشرعي.');
       }
       if (authResult.rejectedCount > 0) {
         throw new Error(`تم إقصاء المجال (${targetNiche.title}) لعدم توافقه مع الضوابط الشرعية.`);
