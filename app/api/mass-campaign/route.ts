@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { automateScraping } from '@/app/actions/scraper';
 import { queueAffiliateLead } from '@/app/actions/campaigns';
+
+export const maxDuration = 60;
 
 // Background task function
 async function processMassCampaign(campaignId: string, searchQuery: string, totalRequested: number) {
@@ -45,8 +48,6 @@ async function processMassCampaign(campaignId: string, searchQuery: string, tota
           const res = await queueAffiliateLead(lead);
           
           if (res.success && lead.id) {
-            // Optional: You could update the lead document here to mark it as PENDING_AFFILIATE
-            // but queueAffiliateLead creates a 'requests' record, so it's already queued.
             await updateDoc(doc(db, 'leads', lead.id), { status: 'PENDING_AFFILIATE' });
             processedCount++;
             
@@ -59,15 +60,15 @@ async function processMassCampaign(campaignId: string, searchQuery: string, tota
           console.warn('Failed to queue lead', lead.businessName);
         }
 
-        // Wait 3 seconds between individual AI calls to avoid rate limits
-        await new Promise(r => setTimeout(r, 3000));
+        // Wait 2 seconds between individual AI calls to avoid rate limits
+        await new Promise(r => setTimeout(r, 2000));
       }
 
       remainingToScrape -= leadsChunk.length;
 
       // Optional: wait a bit between chunks
       if (remainingToScrape > 0) {
-        await new Promise(r => setTimeout(r, 5000));
+        await new Promise(r => setTimeout(r, 3000));
       }
     }
 
@@ -104,10 +105,10 @@ export async function POST(req: Request) {
       createdAt: Timestamp.now()
     });
 
-    // Spawn the background process (fire and forget)
-    // In a full serverless environment like Vercel, this might need @vercel/functions `after()`
-    // For local/Node.js environments, this runs fine in the background.
-    processMassCampaign(campaignDocRef.id, searchQuery, targetCount).catch(console.error);
+    // Use Next.js 15 `after` for reliable background execution on Vercel
+    after(async () => {
+      await processMassCampaign(campaignDocRef.id, searchQuery, targetCount);
+    });
 
     return NextResponse.json({ 
       success: true, 
