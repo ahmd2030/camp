@@ -53,14 +53,23 @@ export default function DashboardHome() {
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch dashboard stats
-    const q = query(collection(db, 'sent_leads'), orderBy('sentAt', 'desc'), limit(5));
+    // Fetch dashboard stats (sort locally to avoid index errors)
+    const q = query(collection(db, 'sent_leads'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const recent: any[] = [];
       snapshot.forEach(doc => {
         recent.push({ id: doc.id, ...doc.data() });
       });
-      setRecentActivity(recent);
+      // Sort locally
+      recent.sort((a, b) => {
+        const tA = a.sentAt?.toMillis ? a.sentAt.toMillis() : 0;
+        const tB = b.sentAt?.toMillis ? b.sentAt.toMillis() : 0;
+        return tB - tA;
+      });
+      setRecentActivity(recent.slice(0, 5));
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching sent_leads:", error);
       setLoading(false);
     });
 
@@ -101,16 +110,21 @@ export default function DashboardHome() {
 
     const qMeetings = query(
       collection(db, 'meetings'),
-      where('status', '==', 'scheduled'),
-      orderBy('createdAt', 'desc'),
-      limit(5)
+      where('status', '==', 'scheduled')
     );
     const unsubscribeMeetings = onSnapshot(qMeetings, (snapshot) => {
       const fetched: any[] = [];
       snapshot.forEach(doc => {
         fetched.push({ id: doc.id, ...doc.data() });
       });
-      setRecentMeetings(fetched);
+      fetched.sort((a, b) => {
+        const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return tB - tA;
+      });
+      setRecentMeetings(fetched.slice(0, 5));
+    }, (error) => {
+      console.error("Error fetching meetings:", error);
     });
 
     const qMeetingsTotal = query(collection(db, 'meetings'), where('status', '==', 'scheduled'));
