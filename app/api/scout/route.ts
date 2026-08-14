@@ -29,11 +29,13 @@ export async function POST(req: Request) {
     }
 
     const results = data.local_results || [];
-    if (results.length === 0) {
-      return NextResponse.json({ success: true, leads: [], message: 'لم يتم العثور على نتائج' });
+    const validResults = results.filter((place: any) => place.phone && place.phone.trim() !== '');
+
+    if (validResults.length === 0) {
+      return NextResponse.json({ success: true, leads: [], message: 'لم يتم العثور على نتائج تحتوي على أرقام هواتف' });
     }
 
-    const leads = results.map((place: any) => ({
+    const leads = validResults.map((place: any) => ({
       id: place.place_id || Math.random().toString(36).substring(7),
       name: place.title || 'بدون اسم',
       type: place.type || 'غير محدد',

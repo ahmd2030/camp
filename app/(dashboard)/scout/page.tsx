@@ -77,8 +77,8 @@ export default function ScoutPage() {
       lead.reviews
     ]);
 
-    // Combine headers and rows
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    // Combine headers and rows, and prepend sep=, so Excel understands the comma delimiter regardless of region
+    const csvContent = ["sep=,", headers.join(','), ...rows.map(row => row.join(','))].join('\n');
 
     // Add UTF-8 BOM to fix Arabic rendering in MS Excel
     const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
