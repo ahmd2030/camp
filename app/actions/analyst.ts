@@ -12,7 +12,7 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
     // 1. Fetch active niches
     const activeResult = await getActiveNiches();
     if (!activeResult.success) {
-      return { success: false, error: 'فشل في الاتصال بقاعدة البيانات لجلب المجالات الحالية.' };
+      return { success: false, error: activeResult.error || 'فشل في الاتصال بقاعدة البيانات لجلب المجالات الحالية.' };
     }
 
     let activeNiches = activeResult.data || [];
