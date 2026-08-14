@@ -63,8 +63,18 @@ ${JSON.stringify(niches.map(n => ({ id: n.id, title: n.title, status: n.status, 
       throw chatError;
     }
 
-    const cleanText = finalResponseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
-    const parsed = JSON.parse(cleanText);
+    let parsed: any = { rejectedNiches: [], strategyReport: "التقرير فارغ" };
+    try {
+      const jsonMatch = finalResponseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("No JSON object found in response");
+      }
+    } catch (parseError: any) {
+      console.error("Master Agent JSON Parse Error:", parseError, "Raw text:", finalResponseText);
+      throw new Error("AI returned malformed data: " + parseError.message);
+    }
 
     // Process rejections
     if (parsed.rejectedNiches && parsed.rejectedNiches.length > 0) {

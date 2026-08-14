@@ -72,8 +72,21 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
       throw chatError;
     }
 
-    const cleanText = finalResponseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
-    const object = JSON.parse(cleanText);
+    let object: any = { niches: [] };
+    try {
+      // Find the first { and the last } to extract JSON
+      const startIdx = finalResponseText.indexOf('{');
+      const endIdx = finalResponseText.lastIndexOf('}');
+      if (startIdx !== -1 && endIdx !== -1) {
+        const jsonStr = finalResponseText.substring(startIdx, endIdx + 1);
+        object = JSON.parse(jsonStr);
+      } else {
+        throw new Error("No JSON object found in response");
+      }
+    } catch (parseError: any) {
+      console.error("JSON Parse Error:", parseError, "Raw text:", finalResponseText);
+      throw new Error("AI returned malformed data: " + parseError.message);
+    }
 
     const newNichesRaw = object.niches || [];
     if (newNichesRaw.length > 0) {
@@ -81,7 +94,11 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
       const dbResult = await addNiches(newNichesRaw as SuggestedNiche[]);
       if (dbResult.success) {
         const finalResult = await getActiveNiches();
-        return { success: true, niches: finalResult.data?.slice(0, 10) || [] };
+        let combined = finalResult.data || [];
+        if (combined.length === 0) {
+           combined = newNichesRaw;
+        }
+        return { success: true, niches: combined.slice(0, 10) };
       } else {
         return { success: false, error: 'Failed to add niches to DB: ' + dbResult.error };
       }
