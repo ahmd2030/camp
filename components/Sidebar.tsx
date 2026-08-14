@@ -29,6 +29,7 @@ export default function Sidebar() {
 
   const navItems = [
     { name: 'الرئيسية', href: '/', icon: LayoutDashboard },
+    { name: 'كشاف العملاء 🔍', href: '/scout', icon: Target },
     { name: 'رادار الصيد 🎯', href: '/radar', icon: Target },
     { name: 'صندوق الوارد 📥', href: '/inbox', icon: Mail },
     { name: 'خزنة الشراكات 💼', href: '/vault', icon: Briefcase },
