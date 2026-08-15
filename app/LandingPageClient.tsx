@@ -36,12 +36,11 @@ export default function LandingPageClient() {
       <nav className="fixed w-full top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 relative flex items-center justify-center">
-              {/* Using standard img tag to avoid next/image domain/optimization config issues for now, since it's local it's fine, but next/image is better if configured. Let's use img for absolute simplicity and guaranteed render */}
-              <img src="/logo.jpg" alt="Mango AI Logo" className="w-full h-full object-contain rounded-xl shadow-lg shadow-orange-500/10" />
-            </div>
+            <a href="/login" className="w-12 h-12 relative flex items-center justify-center cursor-pointer hover:scale-105 transition-transform" title="دخول النظام">
+              <img src="/logo.jpg" alt="Mangos Logo" className="w-full h-full object-contain rounded-xl shadow-lg shadow-orange-500/10" />
+            </a>
             <span className="text-2xl font-black bg-gradient-to-l from-slate-900 to-slate-700 bg-clip-text text-transparent">
-              Mango AI
+              Mangos
             </span>
           </div>
           <div className="hidden md:flex gap-10 font-semibold text-slate-600">
@@ -195,7 +194,7 @@ export default function LandingPageClient() {
               <div className="w-14 h-14 bg-indigo-500 text-white rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-indigo-500/20 relative z-10">
                 <Zap className="w-7 h-7" />
               </div>
-              <h3 className="text-2xl font-bold text-white mb-4 relative z-10">طريقة Mango AI (الذكية)</h3>
+              <h3 className="text-2xl font-bold text-white mb-4 relative z-10">طريقة Mangos (الذكية)</h3>
               <ul className="space-y-4 relative z-10">
                 <li className="flex items-start gap-3 text-slate-300">
                   <span className="text-indigo-400 mt-1">✓</span> استهداف مبني على احتياج حقيقي (نقطة ألم) رُصدت آلياً.
@@ -325,7 +324,7 @@ export default function LandingPageClient() {
             <div className="relative z-10">
               <h2 className="text-4xl md:text-5xl font-bold mb-8 tracking-tight text-white">هل أنت مستعد لقيادة المستقبل؟</h2>
               <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-                لا تدع منافسيك يسبقونك إلى التكنولوجيا. انضم إلى عالم Mango AI وابدأ في حصد نتائج حقيقية ومستدامة.
+                لا تدع منافسيك يسبقونك إلى التكنولوجيا. انضم إلى عالم Mangos وابدأ في حصد نتائج حقيقية ومستدامة.
               </p>
               <a href="mailto:contact@mangosai.co" className="bg-orange-500 text-white hover:bg-orange-600 px-10 py-4 rounded-2xl text-lg font-bold transition-all inline-flex items-center gap-2 shadow-lg hover:shadow-orange-500/25">
                 تواصل معنا لبناء شراكة
@@ -339,10 +338,12 @@ export default function LandingPageClient() {
           
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-10 border-t border-slate-200/80 text-slate-500 font-medium">
             <div className="flex items-center gap-2 text-slate-800 font-bold text-xl">
-              <img src="/logo.jpg" alt="Mango AI Logo" className="w-8 h-8 object-contain rounded-md" />
-              Mango AI
+              <a href="/login" className="cursor-pointer hover:scale-105 transition-transform" title="دخول النظام">
+                <img src="/logo.jpg" alt="Mangos Logo" className="w-8 h-8 object-contain rounded-md" />
+              </a>
+              Mangos
             </div>
-            <p>© 2026 Mango AI. جميع الحقوق محفوظة للأنظمة التكنولوجية المعقدة.</p>
+            <p>© 2026 Mangos. جميع الحقوق محفوظة للأنظمة التكنولوجية المعقدة.</p>
           </div>
         </div>
       </footer>
