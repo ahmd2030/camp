@@ -61,9 +61,9 @@ export default function Sidebar() {
         ${isOpen ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0`}
       >
         {/* Logo / Brand */}
-        <div className="h-16 flex items-center justify-center border-b border-slate-100">
-          <Briefcase className="w-8 h-8 text-orange-500 ml-2" />
-          <span className="text-xl font-bold tracking-wider text-slate-800">نظام الإدارة</span>
+        <div className="h-20 flex items-center justify-center border-b border-slate-100 px-4">
+          <img src="/logo.jpg" alt="Mango AI" className="w-10 h-10 object-contain rounded-lg ml-3 shadow-sm border border-slate-100" />
+          <span className="text-xl font-black tracking-wider text-slate-800">نظام الإدارة</span>
         </div>
 
         {/* Navigation Links */}

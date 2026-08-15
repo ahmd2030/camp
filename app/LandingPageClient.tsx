@@ -36,8 +36,9 @@ export default function LandingPageClient() {
       <nav className="fixed w-full top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <Network className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 relative flex items-center justify-center">
+              {/* Using standard img tag to avoid next/image domain/optimization config issues for now, since it's local it's fine, but next/image is better if configured. Let's use img for absolute simplicity and guaranteed render */}
+              <img src="/logo.jpg" alt="Mango AI Logo" className="w-full h-full object-contain rounded-xl shadow-lg shadow-orange-500/10" />
             </div>
             <span className="text-2xl font-black bg-gradient-to-l from-slate-900 to-slate-700 bg-clip-text text-transparent">
               Mango AI
@@ -338,7 +339,7 @@ export default function LandingPageClient() {
           
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-10 border-t border-slate-200/80 text-slate-500 font-medium">
             <div className="flex items-center gap-2 text-slate-800 font-bold text-xl">
-              <Network className="w-6 h-6 text-orange-500" />
+              <img src="/logo.jpg" alt="Mango AI Logo" className="w-8 h-8 object-contain rounded-md" />
               Mango AI
             </div>
             <p>© 2026 Mango AI. جميع الحقوق محفوظة للأنظمة التكنولوجية المعقدة.</p>
