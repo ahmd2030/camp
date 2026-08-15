@@ -2,7 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Network, Zap, Shield, Search, BrainCircuit, Globe, BarChart3, User, ChevronDown } from 'lucide-react';
+import { 
+  Network, Zap, Search, BrainCircuit, ChevronDown, 
+  Target, ShieldCheck, HeartHandshake, ArrowRight,
+  TrendingUp, Users, Activity
+} from 'lucide-react';
 
 export default function LandingPageClient() {
   const [mounted, setMounted] = useState(false);
@@ -19,9 +23,7 @@ export default function LandingPageClient() {
 
   const staggerContainer = {
     animate: {
-      transition: {
-        staggerChildren: 0.1
-      }
+      transition: { staggerChildren: 0.1 }
     }
   };
 
@@ -30,7 +32,7 @@ export default function LandingPageClient() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-orange-200" dir="rtl">
       
-      {/* Navbar - Clean and Professional */}
+      {/* Navbar */}
       <nav className="fixed w-full top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -42,21 +44,20 @@ export default function LandingPageClient() {
             </span>
           </div>
           <div className="hidden md:flex gap-10 font-semibold text-slate-600">
+            <a href="#about" className="hover:text-orange-500 transition-colors">من نحن</a>
             <a href="#vision" className="hover:text-orange-500 transition-colors">الرؤية</a>
             <a href="#solutions" className="hover:text-orange-500 transition-colors">الحلول التقنية</a>
-            <a href="#impact" className="hover:text-orange-500 transition-colors">الأثر</a>
+            <a href="#how-it-works" className="hover:text-orange-500 transition-colors">آلية العمل</a>
           </div>
-          <div className="w-10 h-10">
-            {/* Empty space to balance the navbar, no admin links */}
-          </div>
+          <div className="w-10 h-10"></div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-40 pb-20 overflow-hidden flex flex-col justify-center min-h-[90vh]">
+      <section className="relative pt-40 pb-20 overflow-hidden flex flex-col justify-center min-h-[95vh]">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none" />
-        <div className="absolute top-20 right-0 w-[500px] h-[500px] bg-orange-200 rounded-full blur-[120px] opacity-30 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-200 rounded-full blur-[120px] opacity-30 pointer-events-none" />
+        <div className="absolute top-20 right-0 w-[500px] h-[500px] bg-orange-200 rounded-full blur-[120px] opacity-40 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-200 rounded-full blur-[120px] opacity-40 pointer-events-none" />
         
         <div className="max-w-6xl mx-auto px-6 relative z-10 w-full">
           <motion.div 
@@ -70,10 +71,10 @@ export default function LandingPageClient() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
               </span>
-              <span className="text-sm font-bold text-slate-700 tracking-wide">الجيل القادم من خوارزميات الربط الذكي</span>
+              <span className="text-sm font-bold text-slate-700 tracking-wide">البنية التحتية لتجارة المستقبل</span>
             </motion.div>
             
-            <motion.h1 variants={fadeIn} className="text-5xl md:text-7xl lg:text-[5rem] font-extrabold text-slate-900 tracking-tight leading-[1.1] mb-8">
+            <motion.h1 variants={fadeIn} className="text-5xl md:text-7xl lg:text-[5.5rem] font-extrabold text-slate-900 tracking-tight leading-[1.1] mb-8">
               التكنولوجيا المعقدة لصناعة
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-500 block mt-3 pb-2">
                 الصلات البسيطة.
@@ -81,73 +82,62 @@ export default function LandingPageClient() {
             </motion.h1>
             
             <motion.p variants={fadeIn} className="text-xl md:text-2xl text-slate-600 mb-12 leading-relaxed max-w-3xl mx-auto">
-              في عالم مليء بالمنتجات والاحتياجات المشتتة، نقوم ببناء جسور رقمية فائقة الذكاء. خوارزمياتنا تحلل السوق وتجمع الأطراف المحتاجة لبعضها في اللحظة المناسبة.
+              نحن لا ننتظر العملاء، بل نصنع لهم مساراً للوصول إليك. خوارزمياتنا تحلل السوق، ترصد الفجوات، وتجمع الأطراف المحتاجة لبعضها في اللحظة المناسبة، لنجعل المستحيل ممكناً.
             </motion.p>
             
-            <motion.div variants={fadeIn} className="flex justify-center">
-              <a href="#vision" className="bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-200/80 px-8 py-4 rounded-2xl text-lg font-bold transition-all hover:shadow-lg hover:border-slate-300 flex items-center justify-center gap-2">
-                اكتشف تقنياتنا
-                <ChevronDown className="w-5 h-5 animate-bounce" />
+            <motion.div variants={fadeIn} className="flex justify-center gap-4">
+              <a href="#about" className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl text-lg font-bold transition-all hover:shadow-xl flex items-center justify-center gap-2">
+                اكتشف ثورتنا التقنية
+                <ArrowRight className="w-5 h-5 rotate-180" />
               </a>
             </motion.div>
           </motion.div>
         </div>
       </section>
 
-      {/* Vision Section */}
-      <section id="vision" className="py-32 bg-white relative">
+      {/* About Us (من نحن) */}
+      <section id="about" className="py-24 bg-white relative border-y border-slate-100">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            <motion.div 
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.8 }}
-            >
-              <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-8 tracking-tight">رؤيتنا: هندسة اللقاء المثالي</h2>
-              <p className="text-lg text-slate-600 mb-6 leading-relaxed">
-                لا نؤمن بالصدف في عالم الأعمال. رؤية <span className="font-bold text-slate-800">Mango AI</span> تتمركز حول حقيقة واحدة: لكل عميل يبحث عن حل، هناك منتج مثالي ينتظره، والعكس صحيح.
-              </p>
-              <p className="text-lg text-slate-600 leading-relaxed mb-10">
-                نحن نبني أنظمة تكنولوجية شديدة التعقيد تعمل كـ "عقل مدبر" يمسح البيانات الضخمة، يحلل سلوكيات السوق، ويجمع الطرفين بدقة جراحية وبشكل آلي بالكامل.
-              </p>
-              
-              <div className="flex items-start gap-4 p-6 bg-slate-50 hover:bg-slate-100 transition-colors rounded-2xl border border-slate-100/80 shadow-sm">
-                <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl shrink-0">
-                  <BrainCircuit className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 mb-1 text-lg">الذكاء الاصطناعي التنبؤي</h4>
-                  <p className="text-slate-600 text-sm leading-relaxed">محركاتنا تتنبأ باحتياج العميل قبل أن يبدأ رحلة البحث عن الحل، لنوفر له ما يحتاجه في الوقت المثالي.</p>
-                </div>
-              </div>
-            </motion.div>
-            
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              className="relative"
+              className="relative rounded-[3rem] overflow-hidden bg-slate-50 border border-slate-100 p-12 aspect-square flex flex-col justify-center"
             >
-              <div className="aspect-square bg-gradient-to-tr from-slate-50 to-indigo-50/50 rounded-[3rem] p-8 relative overflow-hidden border border-slate-100 shadow-2xl shadow-indigo-100/50">
-                {/* Abstract Tech Representation */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-72 h-72 border border-slate-200/80 rounded-full animate-[spin_30s_linear_infinite]" />
-                  <div className="w-48 h-48 border border-indigo-200/60 rounded-full absolute animate-[spin_20s_linear_infinite_reverse]" />
-                  
-                  {/* Center Node */}
-                  <div className="absolute z-20 w-24 h-24 bg-white rounded-2xl shadow-xl flex items-center justify-center rotate-12 border border-slate-100">
-                    <Network className="w-10 h-10 text-orange-500" />
-                  </div>
-                  
-                  {/* Orbiting Nodes */}
-                  <div className="absolute top-1/4 left-1/4 w-12 h-12 bg-orange-500 rounded-full shadow-lg shadow-orange-500/30 flex items-center justify-center animate-bounce delay-75">
-                    <User className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="absolute bottom-1/4 right-1/4 w-12 h-12 bg-indigo-500 rounded-full shadow-lg shadow-indigo-500/30 flex items-center justify-center animate-bounce delay-300">
-                    <Search className="w-6 h-6 text-white" />
-                  </div>
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-transparent" />
+              <div className="relative z-10">
+                <Network className="w-16 h-16 text-orange-500 mb-8" />
+                <h3 className="text-3xl font-bold text-slate-900 mb-4">شريكك التقني الاستراتيجي</h3>
+                <p className="text-lg text-slate-600 leading-relaxed">
+                  نحن لسنا مجرد أداة تسويقية. نحن فريق من مهندسي البيانات وخبراء الذكاء الاصطناعي، اجتمعنا لإنهاء العشوائية في سوق المبيعات العالمي.
+                </p>
+              </div>
+            </motion.div>
+            
+            <motion.div 
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+            >
+              <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-8 tracking-tight">من نحن؟</h2>
+              <p className="text-xl text-slate-600 leading-relaxed mb-6">
+                نمثل الجيل الجديد من البنية التحتية الذكية للأعمال. في Mango AI، نؤمن بأن البحث اليدوي عن العملاء هو مضيعة لوقت العقول المبدعة.
+              </p>
+              <p className="text-xl text-slate-600 leading-relaxed mb-10">
+                لذلك قمنا ببناء أنظمة فائقة الذكاء، لا تبحث عن العملاء فحسب، بل "تفهمهم"، وتحلل احتياجاتهم، وتصنع لهم المسار ليأتوا إليك وهم في أشد الحاجة لما تقدمه.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-6">
+                <div className="border-r-4 border-orange-500 pr-6">
+                  <h4 className="text-3xl font-bold text-slate-900 mb-1">+١٠ مليون</h4>
+                  <p className="text-slate-500 font-medium">نقطة بيانات محللة يومياً</p>
+                </div>
+                <div className="border-r-4 border-indigo-500 pr-6">
+                  <h4 className="text-3xl font-bold text-slate-900 mb-1">١٠٠٪</h4>
+                  <p className="text-slate-500 font-medium">أتمتة لعملية الربط التجاري</p>
                 </div>
               </div>
             </motion.div>
@@ -155,78 +145,195 @@ export default function LandingPageClient() {
         </div>
       </section>
 
-      {/* Solutions / Features */}
-      <section id="solutions" className="py-32 bg-slate-900 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+      {/* Problem vs Solution */}
+      <section className="py-32 bg-slate-900 text-white relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
         
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="text-center max-w-3xl mx-auto mb-20">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">آلية العمل: تبسيط المعقد</h2>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">لماذا Mango AI؟</h2>
             <p className="text-slate-400 text-xl leading-relaxed">
-              خلف الكواليس، تدير خوارزمياتنا ملايين العمليات في الثانية الواحدة لضمان توصيل العميل المناسب بالمنتج المناسب بشكل احترافي وموثوق.
+              الطرق التقليدية لم تعد تجدي نفعاً. نحن نعيد ابتكار قواعد اللعبة بالكامل لضمان نمو أعمالك.
             </p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            {/* The Problem */}
             <motion.div 
-              whileHover={{ y: -10 }}
-              className="bg-slate-800/40 p-10 rounded-[2rem] border border-slate-700/50 backdrop-blur-md hover:bg-slate-800/60 transition-all duration-300"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="bg-red-500/5 border border-red-500/20 p-10 rounded-[2rem]"
             >
-              <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-2xl flex items-center justify-center mb-8">
-                <Search className="w-8 h-8" />
+              <div className="w-14 h-14 bg-red-500/20 text-red-400 rounded-xl flex items-center justify-center mb-6">
+                <Activity className="w-7 h-7" />
               </div>
-              <h3 className="text-2xl font-bold mb-4 tracking-tight">الاستكشاف العميق</h3>
-              <p className="text-slate-400 leading-relaxed text-lg">
-                تقوم العناكب الرقمية بمسح الأسواق وتحليل تقييمات الشركات، لاستخراج نقاط الضعف وتحديد الجهات التي تعاني من مشاكل محددة بدقة جراحية.
-              </p>
+              <h3 className="text-2xl font-bold text-white mb-4">الطريقة القديمة (العشوائية)</h3>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3 text-slate-400">
+                  <span className="text-red-400 mt-1">✗</span> إعلانات ممولة مكلفة تصل لجمهور غير مهتم.
+                </li>
+                <li className="flex items-start gap-3 text-slate-400">
+                  <span className="text-red-400 mt-1">✗</span> رسائل بريدية عشوائية تعتبر مزعجة (Spam).
+                </li>
+                <li className="flex items-start gap-3 text-slate-400">
+                  <span className="text-red-400 mt-1">✗</span> هدر للوقت والجهد في البحث اليدوي عن الفرص.
+                </li>
+              </ul>
             </motion.div>
-            
+
+            {/* The Solution */}
             <motion.div 
-              whileHover={{ y: -10 }}
-              className="bg-slate-800/40 p-10 rounded-[2rem] border border-slate-700/50 backdrop-blur-md hover:bg-slate-800/60 transition-all duration-300"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="bg-indigo-500/10 border border-indigo-500/30 p-10 rounded-[2rem] relative overflow-hidden"
             >
-              <div className="w-16 h-16 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-2xl flex items-center justify-center mb-8">
-                <BrainCircuit className="w-8 h-8" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl" />
+              <div className="w-14 h-14 bg-indigo-500 text-white rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-indigo-500/20 relative z-10">
+                <Zap className="w-7 h-7" />
               </div>
-              <h3 className="text-2xl font-bold mb-4 tracking-tight">المطابقة الذكية</h3>
-              <p className="text-slate-400 leading-relaxed text-lg">
-                يتدخل المحلل الذكي لفهم السياق ونقطة الألم، ليطابقها فورياً مع المنتج أو الخدمة التي تقدم حلاً فعلياً وجذرياً لتلك المشكلة.
-              </p>
-            </motion.div>
-            
-            <motion.div 
-              whileHover={{ y: -10 }}
-              className="bg-slate-800/40 p-10 rounded-[2rem] border border-slate-700/50 backdrop-blur-md hover:bg-slate-800/60 transition-all duration-300"
-            >
-              <div className="w-16 h-16 bg-green-500/10 border border-green-500/20 text-green-400 rounded-2xl flex items-center justify-center mb-8">
-                <Zap className="w-8 h-8" />
-              </div>
-              <h3 className="text-2xl font-bold mb-4 tracking-tight">التواصل الآلي</h3>
-              <p className="text-slate-400 leading-relaxed text-lg">
-                بناء قنوات تواصل مخصصة تعتمد على علم النفس البيعي للتواصل مع الطرف المستهدف، وبناء علاقات متينة نيابة عن عملائنا.
-              </p>
+              <h3 className="text-2xl font-bold text-white mb-4 relative z-10">طريقة Mango AI (الذكية)</h3>
+              <ul className="space-y-4 relative z-10">
+                <li className="flex items-start gap-3 text-slate-300">
+                  <span className="text-indigo-400 mt-1">✓</span> استهداف مبني على احتياج حقيقي (نقطة ألم) رُصدت آلياً.
+                </li>
+                <li className="flex items-start gap-3 text-slate-300">
+                  <span className="text-indigo-400 mt-1">✓</span> رسائل مخصصة سيكولوجياً تُكتب لكل عميل بلمسة بشرية.
+                </li>
+                <li className="flex items-start gap-3 text-slate-300">
+                  <span className="text-indigo-400 mt-1">✓</span> نظام يعمل على مدار الساعة ليجلب لك صفقات جاهزة للإغلاق.
+                </li>
+              </ul>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* CTA Footer */}
-      <footer className="bg-slate-50 pt-32 pb-12">
+      {/* Expanded Features */}
+      <section id="solutions" className="py-32 bg-slate-50 relative">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="bg-gradient-to-br from-orange-500 via-orange-400 to-amber-500 rounded-[3rem] p-16 text-center text-white mb-20 shadow-2xl shadow-orange-500/20 relative overflow-hidden">
+          <div className="text-center max-w-3xl mx-auto mb-20">
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">ميزات تقنية تصنع الفارق</h2>
+            <p className="text-slate-600 text-xl leading-relaxed">
+              خلف الكواليس، قمنا بهندسة أدوات ذكية تجعل من المستحيل على المنافسين اللحاق بك.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {[
+              {
+                icon: <Target className="text-blue-500" />,
+                title: "التنقيب الآلي للعملاء",
+                desc: "محركاتنا تستخرج آلاف الفرص التجارية غير المستغلة في ثوانٍ معدودة. نراقب التقييمات، والشكاوى، ونرصد الفجوات التي يتركها المنافسون."
+              },
+              {
+                icon: <ShieldCheck className="text-green-500" />,
+                title: "الفلترة الجراحية",
+                desc: "لا نجمع أرقاماً فارغة. خوارزمياتنا تستبعد الجهات غير المتوافقة والتي لا تلبي معايير الجودة، لضمان وصولك إلى العملاء ذوي القيمة العالية فقط."
+              },
+              {
+                icon: <BrainCircuit className="text-purple-500" />,
+                title: "تحليل المشاعر (Sentiment Analysis)",
+                desc: "يفهم نظامنا الحالة النفسية للعميل المستهدف بناءً على لغته الرقمية وتوجهاته، لتهيئة أفضل بيئة ممكنة لبدء النقاش وعقد الصفقة."
+              },
+              {
+                icon: <HeartHandshake className="text-orange-500" />,
+                title: "بناء العلاقات الآلي",
+                desc: "نحن لا نرسل روابط تسويقية مزعجة. نظامنا يفتح حوارات استكشافية حقيقية، ويبني ثقة تدريجية تنتهي بطلب العميل لخدمتك بنفسه."
+              }
+            ].map((feature, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                className="bg-white p-10 rounded-[2rem] border border-slate-200/60 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all duration-300 group"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-6 [&>svg]:w-8 [&>svg]:h-8 group-hover:scale-110 transition-transform duration-300">
+                  {feature.icon}
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-4">{feature.title}</h3>
+                <p className="text-slate-600 leading-relaxed text-lg">
+                  {feature.desc}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How it Works */}
+      <section id="how-it-works" className="py-32 bg-white border-t border-slate-100">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center max-w-3xl mx-auto mb-20">
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">كيف نبدأ؟ ببساطة مطلقة.</h2>
+            <p className="text-slate-600 text-xl leading-relaxed">
+              تخلصنا من كل التعقيدات التقنية، لتتفرغ أنت لإدارة أعمالك.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+            {/* Connecting Line */}
+            <div className="hidden md:block absolute top-24 left-1/6 right-1/6 h-0.5 bg-gradient-to-r from-orange-200 via-indigo-200 to-orange-200" />
+            
+            {[
+              {
+                step: "١",
+                title: "أخبرنا بهدفك",
+                desc: "ببساطة، أدخل رابط المنتج أو الخدمة التي تقدمها، واترك الباقي لنا."
+              },
+              {
+                step: "٢",
+                title: "محركاتنا تنطلق",
+                desc: "يقوم الذكاء الاصطناعي بمسح السوق العالمي والمحلي لإيجاد الفئة المتعطشة لما تقدمه."
+              },
+              {
+                step: "٣",
+                title: "استقبل الشراكات",
+                desc: "يتم التواصل مع العملاء آلياً، وتستلم طلبات حقيقية من عملاء جاهزين للإغلاق."
+              }
+            ].map((step, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.2 }}
+                className="relative text-center z-10"
+              >
+                <div className="w-20 h-20 mx-auto bg-white border-4 border-slate-100 rounded-full flex items-center justify-center text-2xl font-black text-orange-500 mb-8 shadow-xl shadow-slate-200/50">
+                  {step.step}
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-4">{step.title}</h3>
+                <p className="text-slate-600 leading-relaxed text-lg">
+                  {step.desc}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Footer */}
+      <footer className="bg-slate-50 pt-32 pb-12 border-t border-slate-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[3rem] p-16 text-center text-white mb-20 shadow-2xl relative overflow-hidden">
             <div className="relative z-10">
-              <h2 className="text-4xl md:text-5xl font-bold mb-8 tracking-tight">هل أنت مستعد لقيادة المستقبل؟</h2>
-              <p className="text-xl text-orange-50 mb-10 max-w-2xl mx-auto leading-relaxed">
-                نحن لا نبيع برمجيات، نحن نوفر بنية تحتية حقيقية للتجارة الذكية والروابط العميقة في عالم الأعمال.
+              <h2 className="text-4xl md:text-5xl font-bold mb-8 tracking-tight text-white">هل أنت مستعد لقيادة المستقبل؟</h2>
+              <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
+                لا تدع منافسيك يسبقونك إلى التكنولوجيا. انضم إلى عالم Mango AI وابدأ في حصد نتائج حقيقية ومستدامة.
               </p>
-              <a href="#vision" className="bg-white text-orange-600 hover:bg-orange-50 px-10 py-4 rounded-2xl text-lg font-bold transition-all inline-flex items-center gap-2 shadow-lg hover:shadow-xl">
-                تعرف على المزيد
+              <a href="mailto:contact@mangosai.co" className="bg-orange-500 text-white hover:bg-orange-600 px-10 py-4 rounded-2xl text-lg font-bold transition-all inline-flex items-center gap-2 shadow-lg hover:shadow-orange-500/25">
+                تواصل معنا لبناء شراكة
               </a>
             </div>
             
             {/* Background elements */}
-            <div className="absolute top-0 right-0 w-80 h-80 bg-white/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-80 h-80 bg-black/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
           </div>
           
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-10 border-t border-slate-200/80 text-slate-500 font-medium">
