@@ -8,7 +8,7 @@ import { queueAffiliateLead } from '@/app/actions/campaigns';
 export const maxDuration = 60;
 
 // Background task function
-async function processMassCampaign(campaignId: string, searchQuery: string, totalRequested: number) {
+async function processMassCampaign(campaignId: string, searchQuery: string, totalRequested: number, customProduct: string | null) {
   const campaignRef = doc(db, 'mass_campaigns', campaignId);
   let processedCount = 0;
   const CHUNK_SIZE = 5; // Process 5 leads per chunk
@@ -45,7 +45,7 @@ async function processMassCampaign(campaignId: string, searchQuery: string, tota
         });
 
         try {
-          const res = await queueAffiliateLead(lead);
+          const res = await queueAffiliateLead(lead, customProduct);
           
           if (res.success && lead.id) {
             await updateDoc(doc(db, 'leads', lead.id), { status: 'PENDING_AFFILIATE' });
@@ -89,7 +89,7 @@ async function processMassCampaign(campaignId: string, searchQuery: string, tota
 
 export async function POST(req: Request) {
   try {
-    const { searchQuery, targetCount } = await req.json();
+    const { searchQuery, targetCount, customProduct } = await req.json();
 
     if (!searchQuery || !targetCount || typeof targetCount !== 'number') {
       return NextResponse.json({ error: 'البيانات المطلوبة غير صحيحة' }, { status: 400 });
@@ -99,6 +99,7 @@ export async function POST(req: Request) {
     const campaignDocRef = await addDoc(collection(db, 'mass_campaigns'), {
       searchQuery,
       totalRequested: targetCount,
+      customProduct: customProduct || null,
       processed: 0,
       status: 'RUNNING',
       message: 'جاري تهيئة محرك الإطلاق...',
@@ -107,7 +108,7 @@ export async function POST(req: Request) {
 
     // Use Next.js 15 `after` for reliable background execution on Vercel
     after(async () => {
-      await processMassCampaign(campaignDocRef.id, searchQuery, targetCount);
+      await processMassCampaign(campaignDocRef.id, searchQuery, targetCount, customProduct);
     });
 
     return NextResponse.json({ 

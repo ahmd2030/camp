@@ -110,3 +110,76 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
     return { success: false, error: error.message || String(error) };
   }
 }
+
+export async function analyzeCustomProduct(userInput: string): Promise<{ success: boolean; niche?: SuggestedNiche; error?: string }> {
+  try {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      return { success: false, error: 'مفتاح OPENROUTER_API_KEY مفقود في إعدادات Vercel. يرجى إضافته.' };
+    }
+
+    const prompt = `أنت خبير تسويق بالعمولة (Affiliate Marketing Expert) لشركة رائدة.
+المستخدم قام بإعطائك رابط تسويق أو وصف لمنتج معين ويريد أن تضع خطة تسويقية لاستهداف فئة معينة.
+
+إدخال المستخدم:
+"${userInput}"
+
+مهمتك:
+استنتج الفئة المستهدفة المثالية لهذا المنتج من خلال الإدخال، وقم بتكوين مجال (Niche) مخصص لها.
+يجب أن ترجع النتيجة بصيغة JSON فقط، تحتوي على كائن niche بهذه الخصائص:
+1. title: اسم المجال (مثل: شركات التكييف، أطباء الأسنان، محلات السوبرماركت)
+2. searchQuery: كلمة البحث لاستخدامها في Google Maps (مثل: "عيادات أسنان في الرياض")
+3. justification: مبرر اختيار هذه الفئة (سطر واحد)
+4. expectedCommission: اكتب "مخصص من الرابط"
+5. painPoint: نقطة الألم الحالية التي يحلها هذا المنتج لهذه الفئة (سطر واحد)
+
+تأكد من إرجاع كائن JSON الصحيح والمناسب فقط.`;
+
+    const { chatWithTeamMember } = await import('@/app/actions/team');
+    
+    const chatRes = await chatWithTeamMember('analyst', prompt);
+    if (!chatRes.success) {
+      throw new Error(chatRes.error || "Server Error from Analyst");
+    }
+
+    const finalResponseText = chatRes.response || '';
+    
+    let object: any = { niche: {} };
+    try {
+      const startIdx = finalResponseText.indexOf('{');
+      const endIdx = finalResponseText.lastIndexOf('}');
+      if (startIdx !== -1 && endIdx !== -1) {
+        const jsonStr = finalResponseText.substring(startIdx, endIdx + 1);
+        object = JSON.parse(jsonStr);
+      } else {
+        throw new Error("No JSON object found in response");
+      }
+    } catch (parseError: any) {
+      throw new Error("AI returned malformed data.");
+    }
+
+    const nicheRaw = object.niche || object;
+    
+    if (nicheRaw && nicheRaw.title && nicheRaw.searchQuery) {
+      const newNiche: SuggestedNiche = {
+        title: nicheRaw.title,
+        searchQuery: nicheRaw.searchQuery,
+        justification: nicheRaw.justification || 'توصية مخصصة',
+        expectedCommission: nicheRaw.expectedCommission || 'مخصص من الرابط',
+        painPoint: nicheRaw.painPoint || 'حل متكامل',
+        status: 'ACTIVE'
+      };
+
+      const dbResult = await addNiches([newNiche]);
+      if (!dbResult.success) {
+        return { success: false, error: 'Failed to add custom niche to DB' };
+      }
+      return { success: true, niche: newNiche };
+    }
+
+    return { success: false, error: 'الذكاء الاصطناعي لم يتمكن من تكوين مجال صحيح.' };
+  } catch (error: any) {
+    console.error("Error analyzing custom product:", error);
+    return { success: false, error: error.message || String(error) };
+  }
+}

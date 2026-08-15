@@ -5,45 +5,62 @@ import { collection, addDoc, Timestamp, query, where, getDocs, updateDoc, doc } 
 import { generatePitch } from './scraper';
 import { sendTestEmail } from './sendEmail';
 
-export async function queueAffiliateLead(lead: any): Promise<{ success: boolean; message: string; error?: string }> {
+export async function queueAffiliateLead(lead: any, customProduct?: string | null): Promise<{ success: boolean; message: string; error?: string }> {
   try {
     const { chatWithTeamMember } = await import('./team');
     const { logSmartError } = await import('./monitor');
 
-    // 1. Ask CMO to suggest specific affiliate product and signup URL
-    const platformPrompt = `أنت خبير شراكات استراتيجي (CMO).
+    let productName = customProduct || "HubSpot CRM";
+    let affiliateSignupUrl = "https://www.hubspot.com/partners/affiliates";
+    
+    // 1. Ask CMO to suggest specific affiliate product ONLY if no custom product is provided
+    if (!customProduct) {
+      const platformPrompt = `أنت خبير شراكات استراتيجي (CMO).
 المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح "منتج محدد أو خدمة بالاسم" تناسب مجالها تماماً للترويج لها بالعمولة (مثلاً: HubSpot CRM, Zoho Books, Shopify).
 يجب أيضاً توفير الرابط المباشر لصفحة التسجيل في برنامج الإحالة (Affiliate Program Sign-up URL) الخاص بهذا المنتج.
 يُمنع منعاً باتاً اقتراح منصات عامة مثل ClickBank أو ShareASale. نريد منتجاً محدداً برابط تسجيله المباشر.
 المجال: ${lead.businessName}
 أرجع النتيجة بصيغة JSON فقط: {"productName": "اسم المنتج المحدد", "affiliateSignupUrl": "https://..."}`;
-    
-    let productName = "HubSpot CRM";
-    let affiliateSignupUrl = "https://www.hubspot.com/partners/affiliates";
-    try {
-      const chatRes = await chatWithTeamMember('cmo', platformPrompt + " \nأرجع النتيجة بصيغة JSON فقط.");
-      if (chatRes.success && chatRes.response) {
-        const cleanText = chatRes.response.replace(/```json/gi, '').replace(/```/gi, '').trim();
-        const parsed = JSON.parse(cleanText);
-        if (parsed.productName) productName = parsed.productName;
-        if (parsed.affiliateSignupUrl) affiliateSignupUrl = parsed.affiliateSignupUrl;
+      
+      try {
+        const chatRes = await chatWithTeamMember('cmo', platformPrompt + " \nأرجع النتيجة بصيغة JSON فقط.");
+        if (chatRes.success && chatRes.response) {
+          const cleanText = chatRes.response.replace(/```json/gi, '').replace(/```/gi, '').trim();
+          const parsed = JSON.parse(cleanText);
+          if (parsed.productName) productName = parsed.productName;
+          if (parsed.affiliateSignupUrl) affiliateSignupUrl = parsed.affiliateSignupUrl;
+        }
+      } catch (e) {
+        console.error("Failed to get product suggestion:", e);
       }
-    } catch (e) {
-      console.error("Failed to get product suggestion:", e);
+    } else {
+       // Custom product logic: The user provided a product name/link in customProduct.
+       // We don't have a signup URL because it's their own link. We just use customProduct as the productName.
+       affiliateSignupUrl = "رابط مخصص";
     }
 
-    // 2. Prepare the email draft with placeholder
+    // 2. Prepare the Drip Bait Email
+    const baitPrompt = `أنت خبير مبيعات ومسوق بالعمولة ذكي جداً.
+المهمة: اكتب إيميل افتتاحي (Drip Bait) قصير جداً وودي للعميل المستهدف: ${lead.businessName}.
+المنتج الذي نود تسويقه لاحقاً هو: ${productName}.
+قاعدة صارمة جداً: هذا هو الإيميل الأول، **لا تقم أبداً** بوضع أي رابط فيه. لا تقل "تفضل بزيارة هذا الرابط" ولا تضع [رابط].
+الهدف من هذا الإيميل هو فقط طرح "سؤال استكشافي" ذكي يلمس نقطة ألم العميل ويجعله يرد بـ "نعم" أو "أخبرني المزيد".
+مثال: "مرحباً، لاحظت مطعمكم الجميل... هل تفكرون في نظام نقاط بيع أسرع؟"
+اكتب الإيميل مباشرة (موضوع الإيميل ثم النص) بدون أي شروحات، وبدون استخدام روابط.`;
+
     let pitch = lead.aiPitch;
-    if (!pitch) {
-      const generated = await generatePitch(lead);
-      if (generated && generated.aiPitch) pitch = generated.aiPitch;
+    try {
+      const chatRes = await chatWithTeamMember('copywriter', baitPrompt);
+      if (chatRes.success && chatRes.response) {
+        pitch = chatRes.response.trim();
+      }
+    } catch (e) {
+      console.error("Failed to generate bait pitch:", e);
     }
     
-    // Replace hardcoded referral link with placeholder if present, or just append it
+    // Fallback if the AI accidentally still put a placeholder
     if (pitch.includes('[رابط الإحالة]')) {
-      pitch = pitch.replace(/\[رابط الإحالة\]/g, '[INSERT_AFFILIATE_LINK_HERE]');
-    } else {
-      pitch += '\n\n[INSERT_AFFILIATE_LINK_HERE]';
+      pitch = pitch.replace(/\[رابط الإحالة\]/g, '');
     }
 
     // 3. Save to requests collection

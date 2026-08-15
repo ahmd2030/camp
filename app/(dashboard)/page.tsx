@@ -51,6 +51,7 @@ export default function DashboardHome() {
   const [autopilotProgress, setAutopilotProgress] = useState(0);
   const [massTargetCount, setMassTargetCount] = useState(5);
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
+  const [customProductInput, setCustomProductInput] = useState('');
 
   useEffect(() => {
     // Fetch dashboard stats (sort locally to avoid index errors)
@@ -174,13 +175,22 @@ export default function DashboardHome() {
 
     try {
       // 1. CHOOSE NICHE
-      const res = await getAndFillNiches();
-      if (!res.success || !res.niches || res.niches.length === 0) {
-        throw new Error(res.error || 'فشل في تحديد المجال.');
+      let targetNiche;
+      if (customProductInput.trim() !== '') {
+        const { analyzeCustomProduct } = await import('@/app/actions/analyst');
+        const res = await analyzeCustomProduct(customProductInput);
+        if (!res.success || !res.niche) {
+          throw new Error(res.error || 'فشل في تحليل المنتج المخصص.');
+        }
+        targetNiche = res.niche;
+      } else {
+        const res = await getAndFillNiches();
+        if (!res.success || !res.niches || res.niches.length === 0) {
+          throw new Error(res.error || 'فشل في تحديد المجال.');
+        }
+        targetNiche = res.niches[0];
       }
       setAutopilotProgress(30);
-
-      const targetNiche = res.niches[0];
       setAutopilotState('FILTERING');
       setAutopilotMessage(`جاري تقييم الجانب الشرعي والربحي لمجال: ${targetNiche.title}...`);
 
@@ -203,7 +213,8 @@ export default function DashboardHome() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           searchQuery: targetNiche.searchQuery,
-          targetCount: massTargetCount
+          targetCount: massTargetCount,
+          customProduct: customProductInput.trim() !== '' ? customProductInput : null
         })
       });
 
@@ -319,6 +330,17 @@ export default function DashboardHome() {
           </h1>
           <p className="text-lg text-slate-600 mb-6">دع الذكاء الاصطناعي يبحث، يفلتر شرعياً، يجمع العملاء، ويرسل الحملات نيابة عنك.</p>
           
+          <div className="mb-6 relative">
+            <input 
+              type="text" 
+              value={customProductInput}
+              onChange={(e) => setCustomProductInput(e.target.value)}
+              disabled={!['IDLE', 'DONE', 'ERROR'].includes(autopilotState)}
+              placeholder="لديك منتج؟ الصق الرابط هنا مع وصف بسيط (مثال: برنامج محاسبة للمطاعم https://...)" 
+              className="w-full pl-4 pr-4 py-4 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-orange-100 focus:border-orange-500 transition-all font-medium text-slate-700 disabled:opacity-50"
+            />
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-slate-600">العدد:</span>
