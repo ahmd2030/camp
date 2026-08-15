@@ -18,10 +18,11 @@ import {
   Link as LinkIcon,
   User,
   MessageSquare,
-  Bot
+  Bot,
+  Trash2
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, limit, where, updateDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { toast, Toaster } from 'sonner';
 
 // Actions for Autopilot
@@ -287,6 +288,18 @@ export default function DashboardHome() {
     }
   };
 
+  const handleDeleteRequest = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
+    try {
+      await deleteDoc(doc(db, 'requests', id));
+      toast.success('تم حذف الطلب بنجاح');
+      // The onSnapshot listener will automatically remove it from the list
+    } catch (error: any) {
+      console.error('Error deleting request:', error);
+      toast.error('حدث خطأ أثناء الحذف');
+    }
+  };
+
   const timeAgo = (dateVal: any) => {
     if (!dateVal) return 'غير معروف';
     let date = dateVal?.toDate ? dateVal.toDate() : new Date(dateVal);
@@ -419,10 +432,19 @@ export default function DashboardHome() {
                   exit={{ opacity: 0, scale: 0.9 }}
                   className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:border-indigo-200 transition-colors"
                 >
-                  <div className="p-5 flex-1">
-                    <div className="flex items-center gap-2 font-mono text-xs text-indigo-600 bg-indigo-50 w-fit px-2 py-1 rounded-full mb-3">
-                      <User className="w-3 h-3" />
-                      {req.customerEmail}
+                  <div className="p-5 flex-1 relative">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-2 font-mono text-xs text-indigo-600 bg-indigo-50 w-fit px-2 py-1 rounded-full">
+                        <User className="w-3 h-3" />
+                        {req.customerEmail}
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteRequest(req.id)}
+                        className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50"
+                        title="حذف هذه المهمة"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                     <p className="text-slate-700 text-sm font-medium line-clamp-3 mb-4">
                       {req.customerRequest}
