@@ -28,12 +28,12 @@ export default function Sidebar() {
   const toggleSidebar = () => setIsOpen(!isOpen);
 
   const navItems = [
-    { name: 'الرئيسية', href: '/', icon: LayoutDashboard },
-    { name: 'كشاف العملاء 🔍', href: '/scout', icon: Target },
-    { name: 'رادار الصيد 🎯', href: '/radar', icon: Target },
-    { name: 'صندوق الوارد 📥', href: '/inbox', icon: Mail },
-    { name: 'خزنة الشراكات 💼', href: '/vault', icon: Briefcase },
-    { name: 'مركز الفوترة ⚙️', href: '/billing', icon: Settings },
+    { name: 'الرئيسية', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'كشاف العملاء 🔍', href: '/dashboard/scout', icon: Target },
+    { name: 'رادار الصيد 🎯', href: '/dashboard/radar', icon: Target },
+    { name: 'صندوق الوارد 📥', href: '/dashboard/inbox', icon: Mail },
+    { name: 'خزنة الشراكات 💼', href: '/dashboard/vault', icon: Briefcase },
+    { name: 'مركز الفوترة ⚙️', href: '/dashboard/billing', icon: Settings },
   ];
 
   return (

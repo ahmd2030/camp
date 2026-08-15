@@ -31,7 +31,7 @@ export default function LoginPage() {
       setIsLoading(false);
     } else if (user) {
       // Success - Redirect to Dashboard
-      router.push('/');
+      router.push('/dashboard');
     }
   };
 
