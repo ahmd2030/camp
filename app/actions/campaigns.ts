@@ -10,13 +10,13 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
     const { chatWithTeamMember } = await import('./team');
     const { logSmartError } = await import('./monitor');
 
-    let productName = customProduct || "HubSpot CRM";
-    let affiliateSignupUrl = "https://www.hubspot.com/partners/affiliates";
+    let productName = customProduct || "برنامج رقمي مقترح";
+    let affiliateSignupUrl = "رابط التسجيل";
     
     // 1. Ask CMO to suggest specific affiliate product ONLY if no custom product is provided
     if (!customProduct) {
       const platformPrompt = `أنت خبير شراكات استراتيجي (CMO).
-المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح "منتج محدد أو خدمة بالاسم" تناسب مجالها تماماً للترويج لها بالعمولة (مثلاً: HubSpot CRM, Zoho Books, Shopify).
+المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح "منتج برمجي أو خدمة SaaS محددة بالاسم" تناسب مجالها تماماً للترويج لها بالعمولة (مثلاً أدوات تصميم، برامج محاسبة، منصات تسويق، أنظمة حجوزات، إلخ).
 يجب أيضاً توفير الرابط المباشر لصفحة التسجيل في برنامج الإحالة (Affiliate Program Sign-up URL) الخاص بهذا المنتج.
 يُمنع منعاً باتاً اقتراح منصات عامة مثل ClickBank أو ShareASale. نريد منتجاً محدداً برابط تسجيله المباشر.
 المجال: ${lead.businessName}

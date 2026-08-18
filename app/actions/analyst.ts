@@ -28,9 +28,9 @@ export async function getAndFillNiches(): Promise<{ success: boolean; niches?: S
 
     // 3. Otherwise, generate the deficit
     const currentMonth = new Date().toLocaleString('ar-EG', { month: 'long' });
-    const prompt = `أنت محلل أعمال (Business Analyst) لشركة تقدم نظام CRM ذكي وفوترة. 
+    const prompt = `أنت محلل أعمال خبير في التسويق بالعمولة (Affiliate Marketing Business Analyst). 
 نحن في شهر ${currentMonth}.
-لدينا حالياً ${activeNiches.length} مجالات نشطة. نريد اقتراح ${batchSize} مجالات تجارية (Niches) جديدة في السعودية يكون الطلب عليها عالياً في هذا الوقت من السنة، والتي تعاني عادة من نقص في التنظيم الرقمي، لتكون أهدافاً لحملاتنا التسويقية بالعمولة.
+لدينا حالياً ${activeNiches.length} مجالات نشطة. نريد اقتراح ${batchSize} مجالات تجارية (Niches) جديدة في السعودية يكون الطلب عليها عالياً في هذا الوقت من السنة، لتكون أهدافاً لحملاتنا التسويقية بالعمولة لبرامج وخدمات رقمية مختلفة.
 
 تأكد ألا تتكرر مع المجالات التالية إن وجدت: ${activeNiches.map(n => n.title).join('، ')}.
 
