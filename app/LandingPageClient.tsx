@@ -94,7 +94,7 @@ const translations = {
       message: "رسالتك (اختياري)",
       send: "إرسال الطلب",
       sending: "جاري الإرسال...",
-      success: "تم إرسال طلبك بنجاح! سنتواصل معك قريباً.",
+      success: "تم استلام طلبك بنجاح! سيقوم فريقنا بالتواصل معك في أقرب وقت ممكن عبر البريد الإلكتروني أو رقم الهاتف المرفق.",
       error: "حدث خطأ أثناء الإرسال. يرجى المحاولة لاحقاً.",
       close: "إغلاق"
     }
@@ -179,7 +179,7 @@ const translations = {
       message: "Your Message (Optional)",
       send: "Submit Request",
       sending: "Sending...",
-      success: "Your request has been sent successfully! We will contact you soon.",
+      success: "Your request has been received successfully! Our team will contact you as soon as possible via the provided email or phone number.",
       error: "An error occurred while sending. Please try again later.",
       close: "Close"
     }
