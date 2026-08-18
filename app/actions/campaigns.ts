@@ -11,7 +11,7 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
     const { logSmartError } = await import('./monitor');
 
     let productName = customProduct || "برنامج رقمي مقترح";
-    let affiliateSignupUrl = "رابط التسجيل";
+    let affiliateSignupUrl = `https://www.google.com/search?q=affiliate+program`;
     
     // 1. Ask CMO to suggest specific affiliate product ONLY if no custom product is provided
     if (!customProduct) {
@@ -28,15 +28,21 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
           const cleanText = chatRes.response.replace(/```json/gi, '').replace(/```/gi, '').trim();
           const parsed = JSON.parse(cleanText);
           if (parsed.productName) productName = parsed.productName;
-          if (parsed.affiliateSignupUrl) affiliateSignupUrl = parsed.affiliateSignupUrl;
+          
+          if (parsed.affiliateSignupUrl && parsed.affiliateSignupUrl.startsWith('http')) {
+            affiliateSignupUrl = parsed.affiliateSignupUrl;
+          } else {
+            // Fallback to a smart Google search if AI didn't provide a valid URL
+            affiliateSignupUrl = `https://www.google.com/search?q=${encodeURIComponent(productName + ' affiliate program sign up')}`;
+          }
         }
       } catch (e) {
         console.error("Failed to get product suggestion:", e);
+        affiliateSignupUrl = `https://www.google.com/search?q=${encodeURIComponent(productName + ' affiliate program sign up')}`;
       }
     } else {
-       // Custom product logic: The user provided a product name/link in customProduct.
-       // We don't have a signup URL because it's their own link. We just use customProduct as the productName.
-       affiliateSignupUrl = "رابط مخصص";
+       // Custom product logic
+       affiliateSignupUrl = `https://www.google.com/search?q=${encodeURIComponent(customProduct + ' affiliate program')}`;
     }
 
     // 2. Prepare the Drip Bait Email
