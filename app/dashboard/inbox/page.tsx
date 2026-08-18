@@ -161,7 +161,11 @@ export default function InboxPage() {
                             {msg.type === 'request' ? 'طلب مباشر (AI)' : 'استفسار عام'}
                           </span>
                         </h4>
-                        <p className="text-slate-500 text-sm font-medium">{msg.customerEmail || msg.email}</p>
+                        <p className="text-slate-500 text-sm font-medium">
+                          {msg.customerEmail || msg.email}
+                          {msg.customerPhone && <span className="ml-3 px-2 py-0.5 bg-orange-50 text-orange-600 rounded-md text-xs" dir="ltr">{msg.customerPhone}</span>}
+                          {msg.customerNiche && <span className="ml-3 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-xs">المجال: {msg.customerNiche}</span>}
+                        </p>
                       </div>
                       <div className="text-left">
                         <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
