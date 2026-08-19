@@ -19,7 +19,9 @@ import {
   User,
   MessageSquare,
   Bot,
-  Trash2
+  Trash2,
+  Info,
+  X
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy, limit, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
@@ -44,6 +46,7 @@ export default function DashboardHome() {
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [affiliateLinks, setAffiliateLinks] = useState<Record<string, string>>({});
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [selectedGuide, setSelectedGuide] = useState<{ title: string, content: string } | null>(null);
 
   // Autopilot State
   // Autopilot State
@@ -454,8 +457,17 @@ export default function DashboardHome() {
                       <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4 flex flex-col gap-3 shadow-sm">
                         <div className="flex items-center gap-2">
                           <span className="text-lg leading-none">📦</span>
-                          <span className="font-bold text-slate-800 text-sm">
+                          <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
                             المنتج المحدد: <span className="text-indigo-600">{req.productName || req.platform}</span>
+                            {(req.strategyGuide || req.productName) && (
+                              <button 
+                                onClick={() => setSelectedGuide({ title: `دليل ترويج: ${req.productName || req.platform}`, content: req.strategyGuide || 'لا يوجد شرح متوفر حالياً.' })}
+                                className="p-1 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition-colors"
+                                title="عرض تفاصيل وشرح استراتيجية المنتج"
+                              >
+                                <Info className="w-4 h-4" />
+                              </button>
+                            )}
                           </span>
                         </div>
                         
@@ -668,6 +680,45 @@ export default function DashboardHome() {
           )}
         </motion.div>
       </div>
+
+      {/* Info Modal */}
+      <AnimatePresence>
+        {selectedGuide && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Info className="w-5 h-5 text-indigo-500" />
+                  {selectedGuide.title}
+                </h3>
+                <button
+                  onClick={() => setSelectedGuide(null)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
+                {selectedGuide.content}
+              </div>
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end">
+                <button
+                  onClick={() => setSelectedGuide(null)}
+                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-sm"
+                >
+                  حسناً، فهمت
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

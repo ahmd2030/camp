@@ -12,6 +12,7 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
 
     let productName = customProduct || "برنامج رقمي مقترح";
     let affiliateSignupUrl = `https://www.google.com/search?q=affiliate+program`;
+    let strategyGuide = "استخدم الرابط المرفق للتسجيل في برنامج الإحالة لهذا المنتج وابدأ الترويج.";
     
     // 1. Ask CMO to suggest specific affiliate product ONLY if no custom product is provided
     if (!customProduct) {
@@ -20,7 +21,7 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
 يجب أيضاً توفير الرابط المباشر لصفحة التسجيل في برنامج الإحالة (Affiliate Program Sign-up URL) الخاص بهذا المنتج.
 يُمنع منعاً باتاً اقتراح منصات عامة مثل ClickBank أو ShareASale. نريد منتجاً محدداً برابط تسجيله المباشر.
 المجال: ${lead.businessName}
-أرجع النتيجة بصيغة JSON فقط: {"productName": "اسم المنتج المحدد", "affiliateSignupUrl": "https://..."}`;
+أرجع النتيجة بصيغة JSON فقط: {"productName": "اسم المنتج المحدد", "affiliateSignupUrl": "https://...", "strategyGuide": "شرح مفصل للمنتج ولماذا يناسب هذا المجال، وكيفية التسجيل في برنامج الإحالة الخاص به، والمنتج المحدد للترويج له لكي لا يختلط الأمر على المسوق."}`;
       
       try {
         const chatRes = await chatWithTeamMember('cmo', platformPrompt + " \nأرجع النتيجة بصيغة JSON فقط.");
@@ -28,6 +29,7 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
           const cleanText = chatRes.response.replace(/```json/gi, '').replace(/```/gi, '').trim();
           const parsed = JSON.parse(cleanText);
           if (parsed.productName) productName = parsed.productName;
+          if (parsed.strategyGuide) strategyGuide = parsed.strategyGuide;
           
           if (parsed.affiliateSignupUrl && parsed.affiliateSignupUrl.startsWith('http')) {
             affiliateSignupUrl = parsed.affiliateSignupUrl;
@@ -43,6 +45,7 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
     } else {
        // Custom product logic
        affiliateSignupUrl = `https://www.google.com/search?q=${encodeURIComponent(customProduct + ' affiliate program')}`;
+       strategyGuide = `أنت تستخدم منتجاً مخصصاً: ${customProduct}. قم بنسخ رابط التسويق الخاص بك وإدراجه.`;
     }
 
     // 2. Prepare the Drip Bait Email
@@ -77,6 +80,7 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
       aiDraftResponse: pitch,
       productName: productName,
       affiliateSignupUrl: affiliateSignupUrl,
+      strategyGuide: strategyGuide,
       createdAt: Timestamp.now()
     });
 
