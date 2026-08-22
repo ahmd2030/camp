@@ -53,7 +53,7 @@ export default function DashboardHome() {
   const [autopilotState, setAutopilotState] = useState<'IDLE' | 'HUNTING' | 'FILTERING' | 'SCRAPING' | 'SENDING' | 'DONE' | 'ERROR' | 'MASS_RUNNING'>('IDLE');
   const [autopilotMessage, setAutopilotMessage] = useState('جاهز للانطلاق');
   const [autopilotProgress, setAutopilotProgress] = useState(0);
-  const [massTargetCount, setMassTargetCount] = useState(5);
+  const [massTargetCount, setMassTargetCount] = useState(1);
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
   const [customProductInput, setCustomProductInput] = useState('');
 
@@ -366,6 +366,7 @@ export default function DashboardHome() {
                 disabled={!['IDLE', 'DONE', 'ERROR'].includes(autopilotState)}
                 className="bg-white border border-slate-200 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 font-bold shadow-sm cursor-pointer"
               >
+                <option value={1}>1 عميل (للتجربة)</option>
                 <option value={5}>5 عملاء</option>
                 <option value={10}>10 عملاء</option>
                 <option value={20}>20 عميل</option>
