@@ -10,36 +10,40 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
     const { chatWithTeamMember } = await import('./team');
     const { logSmartError } = await import('./monitor');
 
-    let productName = customProduct || "برنامج رقمي مقترح";
+    let productName = customProduct || "منتج تسويقي";
     let affiliateSignupUrl = `https://www.google.com/search?q=affiliate+program`;
     let strategyGuide = "استخدم الرابط المرفق للتسجيل في برنامج الإحالة لهذا المنتج وابدأ الترويج.";
     
     // 1. Ask CMO to suggest specific affiliate product ONLY if no custom product is provided
     if (!customProduct) {
       const platformPrompt = `أنت خبير شراكات استراتيجي (CMO).
-المهمة: يجب تحليل مجال هذه الشركة بدقة واقتراح "منتج برمجي أو خدمة SaaS محددة بالاسم" تناسب مجالها تماماً للترويج لها بالعمولة (مثلاً أدوات تصميم، برامج محاسبة، منصات تسويق، أنظمة حجوزات، إلخ).
-يجب أيضاً توفير الرابط المباشر لصفحة التسجيل في برنامج الإحالة (Affiliate Program Sign-up URL) الخاص بهذا المنتج.
-يُمنع منعاً باتاً اقتراح منصات عامة مثل ClickBank أو ShareASale. نريد منتجاً محدداً برابط تسجيله المباشر.
-المجال: ${lead.businessName}
-أرجع النتيجة بصيغة JSON فقط: {"productName": "اسم المنتج المحدد", "affiliateSignupUrl": "https://...", "strategyGuide": "اكتب هنا دليلاً استراتيجياً طويلاً ومفصلاً جداً جداً (لا يقل عن 3-4 فقرات). اشرح بالتفصيل الممل: ما هو هذا المنتج وما هي ميزاته القوية، ولماذا هو الحل السحري والمثالي لهذا المجال تحديداً، وخطوات واضحة خطوة بخطوة لكيفية تسجيل المسوق في برنامج الإحالة الخاص بهم، وأخيراً ما هو القسم أو الخدمة المحددة داخل هذا المنتج التي يجب على المسوق التركيز عليها لتجنب أي تشتت."}`;
+المهمة: اقتراح "منتج برمجي أو خدمة SaaS محددة بالاسم" للترويج لها بالعمولة لشركة تعمل في مجال: ${lead.businessName}.
+يجب أن يكون منتجاً محدداً (مثل أدوات تصميم، برامج محاسبة، إلخ). لا تقترح منصات عامة مثل ClickBank.
+أرجع النتيجة بصيغة JSON فقط:
+{
+  "productName": "اسم المنتج فقط",
+  "affiliateSignupUrl": "الرابط المباشر لصفحة التسجيل كمسوق (Affiliate) لهذا المنتج",
+  "strategyGuide": "دليل سريع من 4 نقاط: 1. ما هو المنتج 2. لماذا يناسب هذا العميل 3. كيفية التسجيل 4. الخدمة التي يجب التركيز عليها."
+}`;
       
       try {
-        const chatRes = await chatWithTeamMember('cmo', platformPrompt + " \nأرجع النتيجة بصيغة JSON فقط.");
+        const chatRes = await chatWithTeamMember('cmo', platformPrompt);
         if (chatRes.success && chatRes.response) {
           const cleanText = chatRes.response.replace(/```json/gi, '').replace(/```/gi, '').trim();
           const parsed = JSON.parse(cleanText);
-          if (parsed.productName) productName = parsed.productName;
-          if (parsed.strategyGuide) strategyGuide = parsed.strategyGuide;
+          if (parsed.productName && parsed.productName !== '') productName = parsed.productName;
+          if (parsed.strategyGuide && parsed.strategyGuide !== '') strategyGuide = parsed.strategyGuide;
           
           if (parsed.affiliateSignupUrl && parsed.affiliateSignupUrl.startsWith('http')) {
             affiliateSignupUrl = parsed.affiliateSignupUrl;
           } else {
-            // Fallback to a smart Google search if AI didn't provide a valid URL
             affiliateSignupUrl = `https://www.google.com/search?q=${encodeURIComponent(productName + ' affiliate program sign up')}`;
           }
+        } else {
+           affiliateSignupUrl = `https://www.google.com/search?q=${encodeURIComponent(productName + ' affiliate program sign up')}`;
         }
       } catch (e) {
-        console.error("Failed to get product suggestion:", e);
+        console.error("Failed to get product suggestion or JSON parse failed:", e);
         affiliateSignupUrl = `https://www.google.com/search?q=${encodeURIComponent(productName + ' affiliate program sign up')}`;
       }
     } else {
