@@ -26,7 +26,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(currentUser);
       setLoading(false);
 
-      if (!currentUser && pathname !== '/login') {
+      const isPublicRoute = pathname === '/login' || pathname === '/';
+      if (!currentUser && !isPublicRoute) {
         router.push('/login');
       }
     });
@@ -43,7 +44,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   // Prevent flashing protected content before redirect
-  if (!user && pathname !== '/login') {
+  const isPublicRoute = pathname === '/login' || pathname === '/';
+  if (!user && !isPublicRoute) {
     return null;
   }
 
