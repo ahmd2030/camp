@@ -32,6 +32,7 @@ export default function Sidebar() {
     { name: 'كشاف العملاء 🔍', href: '/dashboard/scout', icon: Target },
     { name: 'رادار الصيد 🎯', href: '/dashboard/radar', icon: Target },
     { name: 'صندوق الوارد 📥', href: '/dashboard/inbox', icon: Mail },
+    { name: 'المتابعات الذكية ⏰', href: '/dashboard/followups', icon: Activity },
     { name: 'خزنة الشراكات 💼', href: '/dashboard/vault', icon: Briefcase },
     { name: 'مركز الفوترة ⚙️', href: '/dashboard/billing', icon: Settings },
   ];
