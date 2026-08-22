@@ -260,7 +260,7 @@ export default function LandingPageClient() {
   };
 
   return (
-    <div className={`min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-orange-200 ${isRTL ? 'font-arabic' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className={`min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-orange-200 overflow-x-hidden ${isRTL ? 'font-arabic' : ''}`} dir={isRTL ? 'rtl' : 'ltr'}>
       
       {/* Navbar */}
       <nav className="fixed w-full top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 transition-all duration-300">
@@ -307,7 +307,7 @@ export default function LandingPageClient() {
               <span className="text-sm font-bold text-slate-700 tracking-wide">{t.hero.badge}</span>
             </motion.div>
             
-            <motion.h1 variants={fadeIn} className="text-5xl md:text-7xl lg:text-[5.5rem] font-extrabold text-slate-900 tracking-tight leading-[1.1] mb-8">
+            <motion.h1 variants={fadeIn} className="text-4xl sm:text-5xl md:text-7xl lg:text-[5.5rem] font-extrabold text-slate-900 tracking-tight leading-[1.2] md:leading-[1.1] mb-8">
               {t.hero.title1}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-500 block mt-3 pb-2">
                 {t.hero.title2}
@@ -349,12 +349,12 @@ export default function LandingPageClient() {
               <p className="text-xl text-slate-600 leading-relaxed mb-6">{t.about.desc2}</p>
               <p className="text-xl text-slate-600 leading-relaxed mb-10">{t.about.desc3}</p>
               
-              <div className="grid grid-cols-2 gap-6">
-                <div className={`border-orange-500 ${isRTL ? 'border-r-4 pr-6' : 'border-l-4 pl-6'}`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
+                <div className={`border-orange-500 ${isRTL ? 'border-r-4 pr-4 md:pr-6' : 'border-l-4 pl-4 md:pl-6'}`}>
                   <h4 className="text-3xl font-bold text-slate-900 mb-1">{t.about.stat1Val}</h4>
                   <p className="text-slate-500 font-medium">{t.about.stat1Text}</p>
                 </div>
-                <div className={`border-indigo-500 ${isRTL ? 'border-r-4 pr-6' : 'border-l-4 pl-6'}`}>
+                <div className={`border-indigo-500 ${isRTL ? 'border-r-4 pr-4 md:pr-6' : 'border-l-4 pl-4 md:pl-6'}`}>
                   <h4 className="text-3xl font-bold text-slate-900 mb-1">{t.about.stat2Val}</h4>
                   <p className="text-slate-500 font-medium">{t.about.stat2Text}</p>
                 </div>
@@ -458,10 +458,10 @@ export default function LandingPageClient() {
       {/* CTA Footer */}
       <footer className="bg-slate-50 pt-32 pb-12 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[3rem] p-16 text-center text-white mb-20 shadow-2xl relative overflow-hidden">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-[3rem] p-8 md:p-16 text-center text-white mb-20 shadow-2xl relative overflow-hidden">
             <div className="relative z-10">
-              <h2 className="text-4xl md:text-5xl font-bold mb-8 tracking-tight text-white">{t.cta.title}</h2>
-              <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">{t.cta.desc}</p>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-8 tracking-tight text-white">{t.cta.title}</h2>
+              <p className="text-lg md:text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">{t.cta.desc}</p>
               <button 
                 onClick={() => setIsModalOpen(true)}
                 className="bg-orange-500 text-white hover:bg-orange-600 px-10 py-4 rounded-2xl text-lg font-bold transition-all inline-flex items-center gap-2 shadow-lg hover:shadow-orange-500/25"
@@ -488,17 +488,17 @@ export default function LandingPageClient() {
       {/* Contact Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
               onClick={() => setIsModalOpen(false)}
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-[2rem] shadow-2xl relative z-10 w-full max-w-lg overflow-hidden border border-slate-100"
+              className="bg-white rounded-[2rem] shadow-2xl relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-100 my-auto"
             >
-              <div className="p-8">
+              <div className="p-6 md:p-8">
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h3 className="text-2xl font-bold text-slate-900 mb-2">{t.modal.title}</h3>
