@@ -7,6 +7,14 @@ import { collection, query, getDocs, orderBy, onSnapshot } from 'firebase/firest
 import { db } from '@/lib/firebase';
 import { toast, Toaster } from 'sonner';
 
+// Helper function outside component to avoid JSX parser bugs with regex
+const sanitizeMessage = (text: string) => {
+  if (!text) return '';
+  // Replace <br> with newlines, then strip all other HTML tags
+  const withNewlines = text.replace(new RegExp('<br\\s*/?>', 'gi'), '\n');
+  return withNewlines.replace(new RegExp('<[^>]*>?', 'gm'), '').trim();
+};
+
 type MessageType = 'inbound' | 'outbound' | 'ai_reply';
 
 interface ChatMessage {
@@ -258,7 +266,7 @@ export default function InboxChatCRM() {
               </div>
 
               {/* Chat Messages */}
-              <div className="flex-1 p-6 overflow-y-auto bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-50 space-y-6">
+              <div className="flex-1 p-6 overflow-y-auto bg-slate-50 space-y-6">
                 {selectedConvo.messages.map((msg) => {
                   const isClient = msg.sender === 'client';
                   const isAI = msg.sender === 'ai';
@@ -289,7 +297,7 @@ export default function InboxChatCRM() {
                           dir="rtl"
                         >
                           <div className="whitespace-pre-wrap break-words text-right">
-                            {msg.text.replace(/<br\s*\/?>/gi, '\n').replace(new RegExp('<[^>]*>?', 'gm'), '').trim()}
+                            {sanitizeMessage(msg.text)}
                           </div>
                         </div>
                         <div className={`text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1 px-1`}>
