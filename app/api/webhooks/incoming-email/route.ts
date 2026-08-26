@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     }
     sender = sender?.toLowerCase().trim();
 
-    const textBody = emailData.text || emailData.html || '';
+    const textBody = emailData.text || emailData.html || emailData.subject || 'Empty message';
 
     if (!sender || !textBody) {
       return NextResponse.json({ success: false, error: 'Invalid payload' }, { status: 400 });
