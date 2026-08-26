@@ -3,6 +3,9 @@ import { chatWithTeamMember } from '@/app/actions/team';
 import { executeEmailAction } from '@/app/actions/email';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, updateDoc, addDoc } from 'firebase/firestore';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
 
 export async function POST(request: Request) {
   try {
@@ -23,7 +26,43 @@ export async function POST(request: Request) {
     }
     sender = sender?.toLowerCase().trim();
 
-    const textBody = emailData.text || emailData.html || emailData.subject || 'Empty message';
+    let actualText = emailData.text || '';
+    let actualHtml = emailData.html || '';
+
+    // If Resend didn't include the body in the webhook payload, fetch it using the email_id
+    if (!actualText && !actualHtml && emailData.email_id) {
+      try {
+        const fetchedEmail = await resend.emails.get(emailData.email_id);
+        if (fetchedEmail && fetchedEmail.data) {
+          actualText = fetchedEmail.data.text || '';
+          actualHtml = fetchedEmail.data.html || '';
+        }
+      } catch (err) {
+        console.error('Failed to fetch full email body from Resend API:', err);
+      }
+    }
+
+    let textBody = actualText || actualHtml || emailData.subject || 'Empty message';
+
+    // Clean up Gmail quoted replies
+    if (actualText && actualText.includes('On ') && actualText.includes('wrote:')) {
+      const replyParts = actualText.split(/On .* wrote:/);
+      if (replyParts.length > 0 && replyParts[0].trim().length > 0) {
+        textBody = replyParts[0].trim();
+      }
+    }
+
+    // DEBUG: Save raw payload to Firestore
+    try {
+      await addDoc(collection(db, 'webhook_logs'), {
+        createdAt: new Date(),
+        payload: payload,
+        extractedTextBody: textBody,
+        sender: sender
+      });
+    } catch (e) {
+      console.error('Failed to log webhook', e);
+    }
 
     if (!sender || !textBody) {
       return NextResponse.json({ success: false, error: 'Invalid payload' }, { status: 400 });
@@ -60,13 +99,13 @@ export async function POST(request: Request) {
 
     // 2. Generate AI Reply
     const prompt = `استلمنا رسالة من عميل بريده الإلكتروني: ${sender}.
-نص الرسالة:
+نص الرسالة (قم بتجاهل أي تاريخ مراسلات سابق يظهر في أسفل النص، وركز فقط على السؤال الأخير):
 """
 ${textBody}
 """
 
-مهمتك: صياغة رد احترافي ومناسب على استفسار هذا العميل. 
-اكتب نص الرسالة فقط بدون أي مقدمات لك، لأن نصك سيتم إرساله مباشرة كبريد إلكتروني للعميل.`;
+مهمتك: الرد نيابة عن مدير التسويق الذكي من شركة Mango AI بلباقة واحترافية. 
+ركز على الإجابة على سؤاله الأخير فقط، وإذا سأل عن الأسعار فقدم نطاقاً سعرياً منطقياً لشركات التسويق مع التركيز بقوة على العائد على الاستثمار.`;
 
     const aiResponse = await chatWithTeamMember('cmo', prompt, []);
 
