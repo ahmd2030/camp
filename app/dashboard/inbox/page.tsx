@@ -154,11 +154,9 @@ export default function InboxChatCRM() {
   const selectedConvo = conversations.find(c => c.email === selectedEmail);
 
   return (
-    <div className="min-h-[85vh] bg-slate-50 text-slate-800 p-0 md:p-6 font-sans -m-8 flex flex-col" dir="rtl">
+    <div className="h-[85vh] w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row" dir="rtl">
       <Toaster position="top-center" richColors />
       
-      <div className="flex flex-col md:flex-row h-[85vh] w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-        
         {/* Sidebar (Contacts List) */}
         <div className={`w-full md:w-1/3 lg:w-1/4 border-l border-slate-100 flex flex-col bg-slate-50/50 ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
           <div className="p-6 border-b border-slate-200 bg-white">
@@ -263,7 +261,6 @@ export default function InboxChatCRM() {
               <div className="flex-1 p-6 overflow-y-auto bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-50 space-y-6">
                 {selectedConvo.messages.map((msg) => {
                   const isClient = msg.sender === 'client';
-                  const isSystem = msg.sender === 'system';
                   const isAI = msg.sender === 'ai';
 
                   return (
@@ -274,14 +271,14 @@ export default function InboxChatCRM() {
                       transition={{ duration: 0.2 }}
                       className={`flex gap-3 w-full ${isClient ? 'justify-start' : 'justify-end'}`}
                     >
-                      {/* Avatar for Client (First in RTL = Right-most) */}
+                      {/* Avatar for Client */}
                       {isClient && (
-                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex items-center justify-center shrink-0 text-xs shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex-none flex items-center justify-center text-xs shadow-sm">
                           <User className="w-4 h-4" />
                         </div>
                       )}
                       
-                      <div className={`max-w-[85%] md:max-w-[70%] flex flex-col`}>
+                      <div className={`max-w-[85%] md:max-w-[70%] flex flex-col ${isClient ? 'items-start' : 'items-end'}`}>
                         <div className={`px-5 py-3 rounded-2xl shadow-sm text-sm font-medium leading-relaxed
                           ${isClient 
                             ? 'bg-white border border-slate-200 text-slate-800 rounded-tr-none' 
@@ -295,16 +292,16 @@ export default function InboxChatCRM() {
                             {msg.text.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>?/gm, '').trim()}
                           </div>
                         </div>
-                        <div className={`text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1 px-1 ${isClient ? 'justify-start' : 'justify-end'}`}>
+                        <div className={`text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1 px-1`}>
                           <Clock className="w-3 h-3" />
                           {msg.timestamp.toLocaleDateString('ar-SA')} - {msg.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                           {!isClient && <CheckCircle2 className="w-3 h-3 text-emerald-500 ml-1" />}
                         </div>
                       </div>
                       
-                      {/* Avatar for AI/System (Last in RTL = Left-most) */}
+                      {/* Avatar for AI/System */}
                       {!isClient && (
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border 
+                        <div className={`w-8 h-8 rounded-full flex-none flex items-center justify-center border 
                           ${isAI ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-orange-500 text-white border-orange-600'} text-xs 
                           shadow-sm font-bold`}>
                           {isAI ? 'AI' : <Send className="w-3 h-3" />}
