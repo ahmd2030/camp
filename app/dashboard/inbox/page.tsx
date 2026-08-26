@@ -289,7 +289,7 @@ export default function InboxChatCRM() {
                           dir="rtl"
                         >
                           <div className="whitespace-pre-wrap break-words text-right">
-                            {msg.text.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>?/gm, '').trim()}
+                            {msg.text.replace(/<br\s*\/?>/gi, '\n').replace(new RegExp('<[^>]*>?', 'gm'), '').trim()}
                           </div>
                         </div>
                         <div className={`text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1 px-1`}>
