@@ -15,12 +15,12 @@ export default function DashboardLayout({
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:pr-64 transition-all duration-300">
+      <div className="flex-1 flex flex-col md:pr-64 transition-all duration-300 min-w-0">
         {/* Top Navigation */}
         <Navbar />
         
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 bg-gray-50 min-w-0 w-full">
           {children}
         </main>
       </div>

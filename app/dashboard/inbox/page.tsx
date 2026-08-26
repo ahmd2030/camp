@@ -237,22 +237,22 @@ export default function InboxChatCRM() {
           ) : (
             <>
               {/* Chat Header */}
-              <div className="h-20 border-b border-slate-100 px-6 flex items-center justify-between bg-white shrink-0 shadow-sm z-10">
-                <div className="flex items-center gap-4">
+              <div className="h-20 border-b border-slate-100 px-6 flex items-center justify-between bg-white shrink-0 shadow-sm z-10 w-full min-w-0">
+                <div className="flex items-center gap-4 min-w-0 flex-1">
                   <button 
                     onClick={() => setSelectedEmail(null)}
-                    className="md:hidden p-2 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200"
+                    className="md:hidden p-2 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 shrink-0"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
-                  <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-lg border border-indigo-200">
+                  <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-lg border border-indigo-200 shrink-0">
                     {selectedConvo.name.charAt(0).toUpperCase()}
                   </div>
-                  <div>
-                    <h2 className="font-bold text-lg text-slate-800 leading-tight">{selectedConvo.name}</h2>
-                    <p className="text-sm font-medium text-slate-500 flex items-center gap-3 mt-0.5">
-                      <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {selectedConvo.email}</span>
-                      {selectedConvo.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {selectedConvo.phone}</span>}
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-bold text-lg text-slate-800 leading-tight truncate">{selectedConvo.name}</h2>
+                    <p className="text-sm font-medium text-slate-500 flex items-center gap-3 mt-0.5 truncate">
+                      <span className="flex items-center gap-1 truncate"><Mail className="w-3 h-3 shrink-0" /> <span className="truncate">{selectedConvo.email}</span></span>
+                      {selectedConvo.phone && <span className="flex items-center gap-1 shrink-0"><Phone className="w-3 h-3 shrink-0" /> {selectedConvo.phone}</span>}
                     </p>
                   </div>
                 </div>
@@ -265,7 +265,7 @@ export default function InboxChatCRM() {
               </div>
 
               {/* Chat Messages */}
-              <div className="flex-1 p-6 overflow-y-auto bg-slate-50 space-y-6">
+              <div className="flex-1 p-4 md:p-6 overflow-y-auto bg-slate-50 space-y-6 w-full min-w-0">
                 {selectedConvo.messages.map((msg) => {
                   const isClient = msg.sender === 'client';
                   const isAI = msg.sender === 'ai';
@@ -276,7 +276,7 @@ export default function InboxChatCRM() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.2 }}
-                      className={`flex gap-3 w-full ${isClient ? 'justify-start' : 'justify-end'}`}
+                      className={`flex gap-3 w-full min-w-0 ${isClient ? 'justify-start' : 'justify-end'}`}
                     >
                       {/* Avatar for Client */}
                       {isClient && (
@@ -285,7 +285,7 @@ export default function InboxChatCRM() {
                         </div>
                       )}
                       
-                      <div className={`max-w-[85%] md:max-w-[70%] flex flex-col ${isClient ? 'items-start' : 'items-end'}`}>
+                      <div className={`max-w-[85%] md:max-w-[70%] flex flex-col min-w-0 ${isClient ? 'items-start' : 'items-end'}`}>
                         <div className={`px-5 py-3 rounded-2xl shadow-sm text-sm font-medium leading-relaxed
                           ${isClient 
                             ? 'bg-white border border-slate-200 text-slate-800 rounded-tr-none' 
