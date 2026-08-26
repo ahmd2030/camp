@@ -39,6 +39,22 @@ export async function POST(request: Request) {
       console.error('Error updating Firestore for reply:', dbError);
     }
 
+    // 1.5 Save incoming message to Inbox (contact_messages)
+    let inboxDocRef: any = null;
+    try {
+      const { addDoc } = require('firebase/firestore');
+      inboxDocRef = await addDoc(collection(db, 'contact_messages'), {
+        email: sender,
+        customerName: emailData.from || sender,
+        message: textBody,
+        status: 'NEW',
+        source: 'email_reply',
+        createdAt: new Date()
+      });
+    } catch (inboxError) {
+      console.error('Error saving to inbox:', inboxError);
+    }
+
     // 2. Generate AI Reply
     const prompt = `استلمنا رسالة من عميل بريده الإلكتروني: ${sender}.
 نص الرسالة:
@@ -55,11 +71,25 @@ ${textBody}
       // 3. Send the reply back to the customer
       await executeEmailAction(
         sender,
-        `رد: ${emailData.subject || 'استفسارك لدى Mango AI'}`,
+        `رد: ${emailData.subject || 'استفسارك من Mango AI'}`,
         `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
           ${aiResponse.response.replace(/\n/g, '<br>')}
         </div>`
       );
+      
+      // Update the inbox doc with the AI response
+      if (inboxDocRef) {
+        try {
+          const { updateDoc } = require('firebase/firestore');
+          await updateDoc(inboxDocRef, {
+            finalResponse: aiResponse.response,
+            status: 'COMPLETED'
+          });
+        } catch (e) {
+          console.error('Failed to update inbox doc with response', e);
+        }
+      }
+
       return NextResponse.json({ success: true, message: 'Auto-reply sent successfully and DB updated' });
     } else {
       return NextResponse.json({ success: false, error: 'AI failed to generate reply' }, { status: 500 });
