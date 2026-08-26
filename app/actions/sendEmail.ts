@@ -55,7 +55,7 @@ export async function sendTestEmail(emailBody: string, toEmail: string = "test@e
     const { data, error } = await resend.emails.send({
       from: 'Mango AI <info@mangosai.co>',
       to: [toEmail],
-      reply_to: 'ai@reply.mangosai.co',
+      replyTo: 'ai@reply.mangosai.co',
       subject: 'رسالة تسويقية ذكية من Mango AI 🚀',
       html: finalHtmlContent,
     });
