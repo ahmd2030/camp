@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { chatWithTeamMember } from '@/app/actions/team';
 import { executeEmailAction } from '@/app/actions/email';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, addDoc } from 'firebase/firestore';
 
 export async function POST(request: Request) {
   try {
@@ -42,7 +42,6 @@ export async function POST(request: Request) {
     // 1.5 Save incoming message to Inbox (contact_messages)
     let inboxDocRef: any = null;
     try {
-      const { addDoc } = require('firebase/firestore');
       inboxDocRef = await addDoc(collection(db, 'contact_messages'), {
         email: sender,
         customerName: emailData.from || sender,
@@ -80,7 +79,6 @@ ${textBody}
       // Update the inbox doc with the AI response
       if (inboxDocRef) {
         try {
-          const { updateDoc } = require('firebase/firestore');
           await updateDoc(inboxDocRef, {
             finalResponse: aiResponse.response,
             status: 'COMPLETED'
