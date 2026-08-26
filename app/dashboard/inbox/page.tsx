@@ -10,9 +10,8 @@ import { toast, Toaster } from 'sonner';
 // Helper function outside component to avoid JSX parser bugs with regex
 const sanitizeMessage = (text: string) => {
   if (!text) return '';
-  // Replace <br> with newlines, then strip all other HTML tags
-  const withNewlines = text.replace(new RegExp('<br\\s*/?>', 'gi'), '\n');
-  return withNewlines.replace(new RegExp('<[^>]*>?', 'gm'), '').trim();
+  const stripRegex = new RegExp('<[^>]*>?', 'gm');
+  return text.split('<br>').join('\\n').replace(stripRegex, '').trim();
 };
 
 type MessageType = 'inbound' | 'outbound' | 'ai_reply';
@@ -166,14 +165,14 @@ export default function InboxChatCRM() {
       <Toaster position="top-center" richColors />
       
         {/* Sidebar (Contacts List) */}
-        <div className={`w-full md:w-1/3 lg:w-1/4 border-l border-slate-100 flex flex-col bg-slate-50/50 ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`w-full md:w-1/3 lg:w-1/4 border-l border-slate-100 flex flex-col bg-slate-50 ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
           <div className="p-6 border-b border-slate-200 bg-white">
             <h1 className="text-2xl font-extrabold text-slate-800 flex items-center gap-3">
               <MessageSquare className="w-6 h-6 text-indigo-600" />
               محادثات العملاء
             </h1>
             <div className="mt-4 relative">
-              <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute right-3 top-[50%] -translate-y-12 text-slate-400" />
               <input 
                 type="text" 
                 placeholder="ابحث عن عميل..." 
@@ -200,7 +199,7 @@ export default function InboxChatCRM() {
                     <div 
                       key={convo.email}
                       onClick={() => setSelectedEmail(convo.email)}
-                      className={`p-4 cursor-pointer transition-all hover:bg-slate-100 flex items-start gap-3 ${isSelected ? 'bg-indigo-50/80 border-r-4 border-indigo-600' : 'border-r-4 border-transparent'}`}
+                      className={`p-4 cursor-pointer transition-all hover:bg-slate-100 flex items-start gap-3 ${isSelected ? 'bg-indigo-50 border-r-4 border-indigo-600' : 'border-r-4 border-transparent'}`}
                     >
                       <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 rounded-full flex items-center justify-center font-bold shrink-0 border border-indigo-200">
                         {convo.name.charAt(0).toUpperCase()}
@@ -228,7 +227,7 @@ export default function InboxChatCRM() {
         {/* Main Chat Area */}
         <div className={`flex-1 flex flex-col bg-white ${!selectedEmail ? 'hidden md:flex' : 'flex'}`}>
           {!selectedConvo ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-10 bg-slate-50/50">
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-10 bg-slate-50">
               <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mb-6 border-4 border-white shadow-sm">
                 <Mail className="w-10 h-10 text-indigo-300" />
               </div>
@@ -331,8 +330,6 @@ export default function InboxChatCRM() {
             </>
           )}
         </div>
-
-      </div>
     </div>
   );
 }
