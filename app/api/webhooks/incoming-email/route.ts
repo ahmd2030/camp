@@ -113,7 +113,7 @@ ${textBody}
       // 3. Send the reply back to the customer
       await executeEmailAction(
         sender,
-        `رد: ${emailData.subject || 'استفسارك من Mango AI'}`,
+        `رد: ${emailData.subject || 'رسالة ذكية من Mango AI'}`,
         `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
           ${aiResponse.response.replace(/\n/g, '<br>')}
         </div>`
