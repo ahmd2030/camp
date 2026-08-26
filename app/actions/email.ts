@@ -12,8 +12,9 @@ export async function executeEmailAction(to: string, subject: string, html: stri
 
   try {
     const data = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'Mango AI <info@mangosai.co>',
       to,
+      reply_to: 'ai@reply.mangosai.co',
       subject,
       html
     });

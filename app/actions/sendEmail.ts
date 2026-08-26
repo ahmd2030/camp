@@ -53,8 +53,9 @@ export async function sendTestEmail(emailBody: string, toEmail: string = "test@e
     }
 
     const { data, error } = await resend.emails.send({
-      from: 'Mango AI <onboarding@resend.dev>',
-      to: ['ahmd.alyazidi2030@gmail.com'], // using fixed email for sandbox testing, usually should be `toEmail`
+      from: 'Mango AI <info@mangosai.co>',
+      to: [toEmail],
+      reply_to: 'ai@reply.mangosai.co',
       subject: 'رسالة تسويقية ذكية من Mango AI 🚀',
       html: finalHtmlContent,
     });

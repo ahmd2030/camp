@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { chatWithTeamMember } from '@/app/actions/team';
 import { executeEmailAction } from '@/app/actions/email';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 
 export async function POST(request: Request) {
   try {
@@ -8,33 +10,57 @@ export async function POST(request: Request) {
     
     // Check if this is a Resend webhook payload
     const emailData = payload.data || payload; 
-    const sender = emailData.from;
+    let sender = emailData.from;
+    
+    // Extract raw email if it comes in "Name <email>" format
+    if (sender && sender.includes('<')) {
+      const match = sender.match(/<([^>]+)>/);
+      if (match) sender = match[1];
+    }
+    sender = sender?.toLowerCase().trim();
+
     const textBody = emailData.text || emailData.html || '';
 
     if (!sender || !textBody) {
       return NextResponse.json({ success: false, error: 'Invalid payload' }, { status: 400 });
     }
 
+    // 1. Mark lead as replied in Firestore to stop drip campaigns
+    try {
+      const q = query(collection(db, 'sent_leads'), where('email', '==', sender));
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach(async (docSnap) => {
+        await updateDoc(docSnap.ref, {
+          hasReplied: true,
+          lastReplyAt: new Date()
+        });
+      });
+    } catch (dbError) {
+      console.error('Error updating Firestore for reply:', dbError);
+    }
+
+    // 2. Generate AI Reply
     const prompt = `استلمنا رسالة من عميل بريده الإلكتروني: ${sender}.
 نص الرسالة:
 """
 ${textBody}
 """
 
-مهمتك: صياغة رد احترافي ومناسب على استفسار هذا العميل (مثلاً عن كيفية التسجيل أو تفاصيل المنتج). 
+مهمتك: صياغة رد احترافي ومناسب على استفسار هذا العميل. 
 اكتب نص الرسالة فقط بدون أي مقدمات لك، لأن نصك سيتم إرساله مباشرة كبريد إلكتروني للعميل.`;
 
     const aiResponse = await chatWithTeamMember('cmo', prompt, []);
 
     if (aiResponse && aiResponse.success && aiResponse.response) {
+      // 3. Send the reply back to the customer
       await executeEmailAction(
         sender,
-        `رد على استفسارك - ${emailData.subject || 'دعم العملاء'}`,
+        `رد: ${emailData.subject || 'استفسارك لدى Mango AI'}`,
         `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
           ${aiResponse.response.replace(/\n/g, '<br>')}
         </div>`
       );
-      return NextResponse.json({ success: true, message: 'Auto-reply sent successfully' });
+      return NextResponse.json({ success: true, message: 'Auto-reply sent successfully and DB updated' });
     } else {
       return NextResponse.json({ success: false, error: 'AI failed to generate reply' }, { status: 500 });
     }

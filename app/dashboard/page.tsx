@@ -411,6 +411,59 @@ export default function DashboardHome() {
         </div>
       </motion.div>
 
+      {/* Quick Test Email Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-green-50 rounded-xl">
+            <Send className="w-6 h-6 text-green-500" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800 text-lg">تجربة النظام (Test)</h3>
+            <p className="text-sm text-slate-500">أرسل رسالة تجريبية لإيميلك الشخصي لتتأكد من عمل الدومين الجديد</p>
+          </div>
+        </div>
+        <div className="flex w-full sm:w-auto gap-2">
+          <input 
+            type="email" 
+            id="testEmailInput"
+            placeholder="أدخل إيميلك الشخصي هنا..." 
+            className="flex-1 sm:w-64 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+          />
+          <button 
+            onClick={async () => {
+              const email = (document.getElementById('testEmailInput') as HTMLInputElement).value;
+              if (!email) {
+                toast.error('يرجى إدخال الإيميل أولاً');
+                return;
+              }
+              const toastId = toast.loading('جاري الإرسال...');
+              try {
+                const res = await fetch('/api/test-email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+                if (data.success) {
+                  toast.success('تم إرسال الرسالة التجريبية بنجاح! راجع صندوق الوارد الخاص بك.', { id: toastId });
+                } else {
+                  toast.error(data.error || 'فشل الإرسال', { id: toastId });
+                }
+              } catch (e) {
+                toast.error('حدث خطأ في الاتصال', { id: toastId });
+              }
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm"
+          >
+            إرسال التجربة
+          </button>
+        </div>
+      </motion.div>
+
       {/* Pending Tasks Section */}
       {pendingRequests.length > 0 && (
         <motion.div
