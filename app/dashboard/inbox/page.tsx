@@ -272,39 +272,42 @@ export default function InboxChatCRM() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.2 }}
-                      className={`flex gap-3 w-full items-end ${isClient ? 'justify-start' : 'justify-end'}`}
+                      className={`flex gap-3 w-full ${isClient ? 'justify-start' : 'justify-end'}`}
                     >
-                      {/* Avatar for AI/System on the Left */}
-                      {!isClient && (
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border 
-                          ${isAI ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-orange-500 text-white border-orange-600'} text-xs 
-                          shadow-sm font-bold`}>
-                          {isAI ? 'AI' : <Send className="w-3 h-3" />}
+                      {/* Avatar for Client (First in RTL = Right-most) */}
+                      {isClient && (
+                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex items-center justify-center shrink-0 text-xs shadow-sm">
+                          <User className="w-4 h-4" />
                         </div>
                       )}
                       
-                      <div className={`max-w-[85%] md:max-w-[70%] flex flex-col ${isClient ? 'items-start' : 'items-end'}`}>
+                      <div className={`max-w-[85%] md:max-w-[70%] flex flex-col`}>
                         <div className={`px-5 py-3 rounded-2xl shadow-sm text-sm font-medium leading-relaxed
                           ${isClient 
-                            ? 'bg-white border border-slate-200 text-slate-700 rounded-tr-none' 
+                            ? 'bg-white border border-slate-200 text-slate-800 rounded-tr-none' 
                             : isAI
                               ? 'bg-emerald-600 text-white rounded-tl-none'
-                              : 'bg-orange-50 border border-orange-100 text-slate-700 rounded-tl-none'
+                              : 'bg-orange-50 border border-orange-100 text-slate-800 rounded-tl-none'
                           }`}
+                          dir="rtl"
                         >
-                          <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br />') }} />
+                          <div className="whitespace-pre-wrap break-words text-right">
+                            {msg.text.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>?/gm, '').trim()}
+                          </div>
                         </div>
-                        <div className={`text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1 px-1 ${isClient ? 'self-start' : 'self-end'}`}>
+                        <div className={`text-[10px] font-bold text-slate-400 mt-1.5 flex items-center gap-1 px-1 ${isClient ? 'justify-start' : 'justify-end'}`}>
                           <Clock className="w-3 h-3" />
                           {msg.timestamp.toLocaleDateString('ar-SA')} - {msg.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                           {!isClient && <CheckCircle2 className="w-3 h-3 text-emerald-500 ml-1" />}
                         </div>
                       </div>
                       
-                      {/* Avatar for Client on the Right */}
-                      {isClient && (
-                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex items-center justify-center shrink-0 text-xs shadow-sm">
-                          <User className="w-4 h-4" />
+                      {/* Avatar for AI/System (Last in RTL = Left-most) */}
+                      {!isClient && (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border 
+                          ${isAI ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-orange-500 text-white border-orange-600'} text-xs 
+                          shadow-sm font-bold`}>
+                          {isAI ? 'AI' : <Send className="w-3 h-3" />}
                         </div>
                       )}
                     </motion.div>
