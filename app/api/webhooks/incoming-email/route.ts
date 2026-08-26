@@ -9,6 +9,10 @@ export async function POST(request: Request) {
     const payload = await request.json();
     
     // Check if this is a Resend webhook payload
+    if (payload.type !== 'email.received') {
+      return NextResponse.json({ success: true, message: 'Ignored non-received event' });
+    }
+    
     const emailData = payload.data || payload; 
     let sender = emailData.from;
     
