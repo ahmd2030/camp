@@ -1,11 +1,68 @@
 import { NextResponse } from 'next/server';
-import { chatWithTeamMember } from '@/app/actions/team';
 import { executeEmailAction } from '@/app/actions/email';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, updateDoc, addDoc } from 'firebase/firestore';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
+
+// Simple direct Gemini call — no tools, no complexity, just a text reply
+async function generateAutoReply(customerEmail: string, messageText: string): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) {
+    console.error('No Gemini API key found');
+    return null;
+  }
+
+  const systemPrompt = `أنت مدير التسويق الاحترافي في شركة Mango AI. شركتنا متخصصة في أنظمة CRM وأتمتة التسويق بالذكاء الاصطناعي.
+
+تعليمات هامة جداً:
+1. اقرأ رسالة العميل بدقة وأجب على سؤاله الأخير فقط بشكل مباشر.
+2. إذا سأل عن السعر: قدم نطاقاً بين 1000$ و5000$ حسب التعقيد، وركز على العائد على الاستثمار (ROI)، ثم ادعه لاجتماع.
+3. إذا طلب خدمة خارج نطاقنا: لا ترفض، بل رشح له أدوات عالمية موثوقة واعرض التكامل معها.
+4. اختم دائماً بـ: "مع التحية، فريق Mango AI"
+5. ممنوع استخدام عبارة "رسالة تسويقية ذكية".
+6. الرد يجب أن يكون مختصراً ومهنياً وباللغة العربية الفصحى.`;
+
+  const userPrompt = `رسالة من عميل (${customerEmail}):
+"""
+${messageText}
+"""
+
+اكتب رداً احترافياً مباشراً على هذه الرسالة. لا تضع مقدمات أو تعليقات، فقط نص الرد الجاهز للإرسال.`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Gemini API error:', response.status, errText);
+      return null;
+    }
+
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text || null;
+  } catch (err) {
+    console.error('Gemini fetch error:', err);
+    return null;
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -34,8 +91,8 @@ export async function POST(request: Request) {
       try {
         const fetchedEmail = await resend.emails.get(emailData.email_id);
         if (fetchedEmail && fetchedEmail.data) {
-          actualText = fetchedEmail.data.text || '';
-          actualHtml = fetchedEmail.data.html || '';
+          actualText = (fetchedEmail.data as any).text || '';
+          actualHtml = (fetchedEmail.data as any).html || '';
         }
       } catch (err) {
         console.error('Failed to fetch full email body from Resend API:', err);
@@ -44,7 +101,7 @@ export async function POST(request: Request) {
 
     let textBody = actualText || actualHtml || emailData.subject || 'Empty message';
 
-    // Clean up Gmail quoted replies
+    // Clean up Gmail quoted replies (cut off the "On ... wrote:" part)
     if (actualText && actualText.includes('On ') && actualText.includes('wrote:')) {
       const replyParts = actualText.split(/On .* wrote:/);
       if (replyParts.length > 0 && replyParts[0].trim().length > 0) {
@@ -97,25 +154,16 @@ export async function POST(request: Request) {
       console.error('Error saving to inbox:', inboxError);
     }
 
-    // 2. Generate AI Reply
-    const prompt = `استلمنا رسالة من عميل بريده الإلكتروني: ${sender}.
-نص الرسالة (قم بتجاهل أي تاريخ مراسلات سابق يظهر في أسفل النص، وركز فقط على السؤال الأخير):
-"""
-${textBody}
-"""
+    // 2. Generate AI Reply using direct Gemini call (no tools involved)
+    const aiReplyText = await generateAutoReply(sender, textBody);
 
-مهمتك: الرد نيابة عن مدير التسويق الذكي من شركة Mango AI بلباقة واحترافية. 
-ركز على الإجابة على سؤاله الأخير فقط، وإذا سأل عن الأسعار فقدم نطاقاً سعرياً منطقياً لشركات التسويق مع التركيز بقوة على العائد على الاستثمار.`;
-
-    const aiResponse = await chatWithTeamMember('cmo', prompt, []);
-
-    if (aiResponse && aiResponse.success && aiResponse.response) {
+    if (aiReplyText) {
       // 3. Send the reply back to the customer
       await executeEmailAction(
         sender,
-        `رد: ${emailData.subject || 'رسالة ذكية من Mango AI'}`,
-        `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6;">
-          ${aiResponse.response.replace(/\n/g, '<br>')}
+        `رد: ${emailData.subject || 'رسالة من فريق Mango AI'}`,
+        `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; font-size: 15px;">
+          ${aiReplyText.replace(/\n/g, '<br>')}
         </div>`
       );
       
@@ -123,7 +171,7 @@ ${textBody}
       if (inboxDocRef) {
         try {
           await updateDoc(inboxDocRef, {
-            finalResponse: aiResponse.response,
+            finalResponse: aiReplyText,
             status: 'COMPLETED'
           });
         } catch (e) {
@@ -131,9 +179,15 @@ ${textBody}
         }
       }
 
-      return NextResponse.json({ success: true, message: 'Auto-reply sent successfully and DB updated' });
+      return NextResponse.json({ success: true, message: 'Auto-reply sent successfully' });
     } else {
-      return NextResponse.json({ success: false, error: 'AI failed to generate reply' }, { status: 500 });
+      // Update inbox doc to show AI failed
+      if (inboxDocRef) {
+        try {
+          await updateDoc(inboxDocRef, { status: 'AI_FAILED' });
+        } catch (e) {}
+      }
+      return NextResponse.json({ success: false, error: 'Gemini AI failed to generate reply' }, { status: 500 });
     }
   } catch (error: any) {
     console.error('Webhook Error:', error);
