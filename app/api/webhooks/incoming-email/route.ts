@@ -148,41 +148,29 @@ export async function POST(request: Request) {
       console.error('Error saving to inbox:', inboxError);
     }
 
-    // 2. Generate AI Reply using direct Gemini call (no tools involved)
-    const aiReplyText = await generateAutoReply(sender, textBody);
+    // 2. Generate AI Draft using OpenRouter (no tools = always plain text)
+    const aiDraftText = await generateAutoReply(sender, textBody);
 
-    if (aiReplyText) {
-      // 3. Send the reply back to the customer
-      await executeEmailAction(
-        sender,
-        `رد: ${emailData.subject || 'رسالة من فريق Mango AI'}`,
-        `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; font-size: 15px;">
-          ${aiReplyText.replace(/\n/g, '<br>')}
-        </div>`
-      );
-      
-      // Update the inbox doc with the AI response
-      if (inboxDocRef) {
-        try {
-          await updateDoc(inboxDocRef, {
-            finalResponse: aiReplyText,
-            status: 'COMPLETED'
-          });
-        } catch (e) {
-          console.error('Failed to update inbox doc with response', e);
-        }
+    // 3. Update inbox doc with draft — owner reviews and approves before sending
+    if (inboxDocRef) {
+      try {
+        await updateDoc(inboxDocRef, {
+          aiDraft: aiDraftText || null,
+          status: aiDraftText ? 'DRAFT' : 'AI_FAILED',
+          subject: emailData.subject || null
+        });
+      } catch (e) {
+        console.error('Failed to update inbox doc with draft', e);
       }
-
-      return NextResponse.json({ success: true, message: 'Auto-reply sent successfully' });
-    } else {
-      // Update inbox doc to show AI failed
-      if (inboxDocRef) {
-        try {
-          await updateDoc(inboxDocRef, { status: 'AI_FAILED' });
-        } catch (e) {}
-      }
-      return NextResponse.json({ success: false, error: 'Gemini AI failed to generate reply' }, { status: 500 });
     }
+
+    return NextResponse.json({
+      success: true,
+      message: aiDraftText
+        ? 'Draft saved — awaiting owner approval to send'
+        : 'AI failed to generate draft'
+    });
+
   } catch (error: any) {
     console.error('Webhook Error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
