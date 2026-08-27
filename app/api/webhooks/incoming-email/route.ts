@@ -6,11 +6,11 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
 
-// Simple direct Gemini call — no tools, no complexity, just a text reply
+// Simple direct OpenRouter call — no tools, always returns plain text reply
 async function generateAutoReply(customerEmail: string, messageText: string): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    console.error('No Gemini API key found');
+    console.error('No OPENROUTER_API_KEY found in environment');
     return null;
   }
 
@@ -24,42 +24,36 @@ async function generateAutoReply(customerEmail: string, messageText: string): Pr
 5. ممنوع استخدام عبارة "رسالة تسويقية ذكية".
 6. الرد يجب أن يكون مختصراً ومهنياً وباللغة العربية الفصحى.`;
 
-  const userPrompt = `رسالة من عميل (${customerEmail}):
-"""
-${messageText}
-"""
-
-اكتب رداً احترافياً مباشراً على هذه الرسالة. لا تضع مقدمات أو تعليقات، فقط نص الرد الجاهز للإرسال.`;
-
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1024,
-          }
-        })
-      }
-    );
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://mangosai.co',
+        'X-Title': 'Mango AI'
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `رسالة من عميل (${customerEmail}):\n"""\n${messageText}\n"""\n\nاكتب رداً احترافياً مباشراً. لا تضع مقدمات أو تعليقات، فقط نص الرد الجاهز للإرسال.` }
+        ]
+        // NO tools here — we need a plain text response always
+      })
+    });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Gemini API error:', response.status, errText);
+      console.error('OpenRouter API error:', response.status, errText);
       return null;
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = data?.choices?.[0]?.message?.content;
     return text || null;
   } catch (err) {
-    console.error('Gemini fetch error:', err);
+    console.error('OpenRouter fetch error:', err);
     return null;
   }
 }
