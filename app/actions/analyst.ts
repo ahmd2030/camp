@@ -135,14 +135,28 @@ export async function analyzeCustomProduct(userInput: string): Promise<{ success
 
 تأكد من إرجاع كائن JSON الصحيح والمناسب فقط.`;
 
-    const { chatWithTeamMember } = await import('@/app/actions/team');
+    const { chatWithTeamMember, continueChatWithSearch } = await import('@/app/actions/team');
     
     const chatRes = await chatWithTeamMember('analyst', prompt);
     if (!chatRes.success) {
       throw new Error(chatRes.error || "Server Error from Analyst");
     }
 
-    const finalResponseText = chatRes.response || '';
+    let finalResponseText = chatRes.response || '';
+
+    if (chatRes.isSearching) {
+      // Handle search
+      const fullHistoryForSearch = [{ role: 'user' as const, content: prompt }];
+      const searchRes = await continueChatWithSearch('analyst', fullHistoryForSearch, chatRes.assistantMessage, chatRes.query || '');
+      if (!searchRes.success) {
+        throw new Error(searchRes.error || "Server Error during search");
+      }
+      finalResponseText = searchRes.response || '';
+    }
+
+    if (!finalResponseText) {
+      throw new Error("لم يرجع المحلل أي بيانات نصية.");
+    }
     
     let object: any = { niche: {} };
     try {
