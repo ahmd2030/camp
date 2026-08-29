@@ -11,33 +11,34 @@ export const maxDuration = 60;
 async function processMassCampaign(campaignId: string, searchQuery: string, totalRequested: number, customProduct: string | null) {
   const campaignRef = doc(db, 'mass_campaigns', campaignId);
   let processedCount = 0;
-  const CHUNK_SIZE = 5; // Process 5 leads per chunk
+  let startOffset = 0;
 
   try {
-    let remainingToScrape = totalRequested;
-
-    while (remainingToScrape > 0) {
-      const currentChunkSize = Math.min(CHUNK_SIZE, remainingToScrape);
+    while (processedCount < totalRequested) {
+      const needed = totalRequested - processedCount;
+      const fetchLimit = Math.min(20, needed);
       
       await updateDoc(campaignRef, {
-        message: `جاري البحث واستخراج ${currentChunkSize} عملاء جدد (الدفعة الحالية)... 🎣`
+        message: `جاري البحث واستخراج دفعة جديدة... 🎣 (تم إنجاز ${processedCount})`
       });
 
-      // 1. Scrape chunk
-      const scrapeResult = await automateScraping(searchQuery, currentChunkSize);
+      // 1. Scrape a full page from SerpApi (20 results)
+      const scrapeResult = await automateScraping(searchQuery, 20, startOffset);
       
       if (!scrapeResult.success || !scrapeResult.leads || scrapeResult.leads.length === 0) {
-        // Break if no more leads found
         await updateDoc(campaignRef, {
-          message: `لم نتمكن من العثور على مزيد من العملاء لهذا المجال.`
+          message: `لم نتمكن من العثور على مزيد من العملاء في هذا المجال.`
         });
         break;
       }
 
       const leadsChunk = scrapeResult.leads;
+      let addedInThisChunk = 0;
 
-      // 2. Process each lead in chunk
+      // 2. Process each lead
       for (let i = 0; i < leadsChunk.length; i++) {
+        if (processedCount >= totalRequested) break;
+        
         const lead = leadsChunk[i];
         
         await updateDoc(campaignRef, {
@@ -50,8 +51,8 @@ async function processMassCampaign(campaignId: string, searchQuery: string, tota
           if (res.success && lead.id) {
             await updateDoc(doc(db, 'leads', lead.id), { status: 'PENDING_AFFILIATE' });
             processedCount++;
+            addedInThisChunk++;
             
-            // Update progress
             await updateDoc(campaignRef, {
               processed: processedCount
             });
@@ -60,19 +61,22 @@ async function processMassCampaign(campaignId: string, searchQuery: string, tota
           console.warn('Failed to queue lead', lead.businessName);
         }
 
-        // Wait 2 seconds between individual AI calls to avoid rate limits
-        await new Promise(r => setTimeout(r, 2000));
+        // Wait a bit to avoid hitting rate limits
+        await new Promise(r => setTimeout(r, 1000));
       }
 
-      remainingToScrape -= leadsChunk.length;
+      // If we didn't add any new leads in this chunk, we might be stuck in a duplicate loop or out of leads
+      if (addedInThisChunk === 0 && leadsChunk.length > 0) {
+        startOffset += 20; // try next page anyway
+      } else {
+        startOffset += 20;
+      }
 
-      // Optional: wait a bit between chunks
-      if (remainingToScrape > 0) {
-        await new Promise(r => setTimeout(r, 3000));
+      if (processedCount < totalRequested) {
+        await new Promise(r => setTimeout(r, 2000));
       }
     }
 
-    // Finished
     await updateDoc(campaignRef, {
       status: 'COMPLETED',
       message: `تم الانتهاء بنجاح! تم تحويل ${processedCount} فرصة لقائمة الانتظار.`

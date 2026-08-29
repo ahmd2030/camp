@@ -48,8 +48,10 @@ export async function queueAffiliateLead(lead: any, customProduct?: string | nul
       }
     } else {
        // Custom product logic
-       affiliateSignupUrl = `https://www.google.com/search?q=${encodeURIComponent(customProduct + ' affiliate program')}`;
-       strategyGuide = `أنت تستخدم منتجاً مخصصاً: ${customProduct}. قم بنسخ رابط التسويق الخاص بك وإدراجه.`;
+       const isUrl = customProduct.startsWith('http');
+       productName = isUrl ? "المنتج المخصص (عبر الرابط)" : customProduct;
+       affiliateSignupUrl = isUrl ? customProduct : `https://www.google.com/search?q=${encodeURIComponent(customProduct + ' affiliate program')}`;
+       strategyGuide = `أنت تستخدم منتجاً مخصصاً. رابط الإحالة الخاص بك هو: ${isUrl ? customProduct : 'غير متوفر'}. الرجاء التحقق منه قبل الإرسال.`;
     }
 
     // 2. Prepare the Drip Bait Email

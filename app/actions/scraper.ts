@@ -7,15 +7,15 @@ const HALAL_BLACKLIST = [
   'ملهى', 'بار', 'خمارة', 'مرقص', 'ديسكو', 'نادي ليلي', 'مشروبات روحية'
 ];
 
-export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PENDING' | 'READY_TO_SEND' = 'PENDING', limit: number = 20) {
+export async function scrapeGooglePlaces(searchQuery: string, defaultStatus: 'PENDING' | 'READY_TO_SEND' = 'PENDING', limit: number = 20, start: number = 0) {
   try {
     const apiKey = process.env.SERPAPI_API_KEY;
     if (!apiKey) {
       return { success: false, error: 'مفتاح SerpApi غير صالح أو لم يتم إعداده في بيئة الإنتاج.' };
     }
 
-    // 1. SerpApi Fetch with Timeout
-    const url = `https://serpapi.com/search.json?engine=google_local&q=${encodeURIComponent(searchQuery)}&api_key=${apiKey}`;
+    // 1. SerpApi Fetch with Timeout and Pagination
+    const url = `https://serpapi.com/search.json?engine=google_local&q=${encodeURIComponent(searchQuery)}&start=${start}&api_key=${apiKey}`;
     let data;
     try {
       const controller = new AbortController();
@@ -192,9 +192,9 @@ Mango AI`;
   }
 }
 
-export async function automateScraping(searchQuery: string, limit: number = 20) {
+export async function automateScraping(searchQuery: string, limit: number = 20, start: number = 0) {
   try {
-    const result = await scrapeGooglePlaces(searchQuery, 'READY_TO_SEND', limit);
+    const result = await scrapeGooglePlaces(searchQuery, 'READY_TO_SEND', limit, start);
     return result;
   } catch (e) {
     console.error("Failed automateScraping", e);

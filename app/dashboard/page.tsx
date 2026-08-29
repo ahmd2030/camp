@@ -78,7 +78,7 @@ export default function DashboardHome() {
       setLoading(false);
     });
 
-    // Fetch Pending Requests (remove orderBy to avoid Firebase index error, sort locally)
+    // Fetch Pending Requests
     const qPending = query(collection(db, 'requests'), where('status', '==', 'PENDING_AFFILIATE'));
     const unsubscribePending = onSnapshot(qPending, (snapshot) => {
       const fetched: any[] = [];
@@ -92,6 +92,19 @@ export default function DashboardHome() {
         return tB - tA;
       });
       setPendingRequests(fetched);
+
+      // Auto-fill affiliate links if the AI already figured it out from customProduct
+      setAffiliateLinks(prev => {
+        const newLinks = { ...prev };
+        let changed = false;
+        fetched.forEach(req => {
+          if (!newLinks[req.id] && req.affiliateSignupUrl && req.affiliateSignupUrl.startsWith('http') && !req.affiliateSignupUrl.includes('google.com/search')) {
+            newLinks[req.id] = req.affiliateSignupUrl;
+            changed = true;
+          }
+        });
+        return changed ? newLinks : prev;
+      });
     }, (error) => {
       console.error("Error fetching pending requests:", error);
     });
@@ -471,12 +484,52 @@ export default function DashboardHome() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <Target className="w-6 h-6 text-indigo-500" />
-            <h2 className="text-2xl font-bold text-slate-800">مهام قيد الانتظار (روابط مطلوبة)</h2>
-            <span className="bg-indigo-100 text-indigo-700 py-1 px-3 rounded-full text-sm font-bold">
-              {pendingRequests.length}
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <Target className="w-6 h-6 text-indigo-500" />
+              <h2 className="text-2xl font-bold text-slate-800">مهام قيد الانتظار (روابط مطلوبة)</h2>
+              <span className="bg-indigo-100 text-indigo-700 py-1 px-3 rounded-full text-sm font-bold">
+                {pendingRequests.length}
+              </span>
+            </div>
+            
+            <button
+              onClick={async () => {
+                const unready = pendingRequests.filter(req => !affiliateLinks[req.id] || affiliateLinks[req.id].trim() === '');
+                if (unready.length > 0) {
+                  toast.error(`هناك ${unready.length} عميل بدون رابط إحالة! قم بتعبئة الروابط المتبقية أولاً.`);
+                  return;
+                }
+                const toastId = toast.loading(`جاري إرسال ${pendingRequests.length} رسالة...`);
+                let successCount = 0;
+                for (const req of pendingRequests) {
+                  setProcessingId(req.id);
+                  try {
+                    const link = affiliateLinks[req.id];
+                    const finalEmailContent = req.aiDraftResponse.replace(/\[INSERT_AFFILIATE_LINK_HERE\]/g, link);
+                    await fetch('/api/send-approval', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        id: req.id,
+                        customerEmail: req.customerEmail,
+                        finalEmailContent: finalEmailContent,
+                        affiliateLink: link,
+                        productName: req.productName || '',
+                        platformName: req.platform || ''
+                      })
+                    });
+                    successCount++;
+                  } catch(e) {}
+                }
+                setProcessingId(null);
+                toast.success(`تم إرسال ${successCount} رسالة بنجاح!`, { id: toastId });
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2"
+            >
+              <Rocket className="w-4 h-4" />
+              إرسال الكل 🚀
+            </button>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
