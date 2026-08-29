@@ -18,7 +18,8 @@ import {
   Target,
   MessageSquare,
   Activity,
-  Link as LinkIcon
+  Link as LinkIcon,
+  GraduationCap
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -34,6 +35,7 @@ export default function Sidebar() {
     { name: 'صندوق الوارد 📥', href: '/dashboard/inbox', icon: Mail },
     { name: 'المتابعات الذكية ⏰', href: '/dashboard/followups', icon: Activity },
     { name: 'خزنة الشراكات 💼', href: '/dashboard/vault', icon: Briefcase },
+    { name: 'تدريب النظام 🧠', href: '/dashboard/training', icon: GraduationCap },
     { name: 'مركز الفوترة ⚙️', href: '/dashboard/billing', icon: Settings },
   ];
 

@@ -6,23 +6,50 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build');
 
-// Simple direct OpenRouter call — no tools, always returns plain text reply
-async function generateAutoReply(customerEmail: string, messageText: string): Promise<string | null> {
+// Fetch all company knowledge from Firestore
+async function getCompanyKnowledge(): Promise<string> {
+  try {
+    const snap = await getDocs(collection(db, 'company_knowledge'));
+    if (snap.empty) return '';
+    const entries: string[] = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      entries.push(`س: ${d.question}\nج: ${d.answer}`);
+    });
+    return entries.join('\n\n---\n\n');
+  } catch (e) {
+    console.error('Failed to fetch company knowledge:', e);
+    return '';
+  }
+}
+
+// Generate AI reply using company knowledge + OpenRouter
+async function generateAutoReply(customerEmail: string, messageText: string): Promise<{ text: string | null; hasKnowledge: boolean }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.error('No OPENROUTER_API_KEY found in environment');
-    return null;
+    return { text: null, hasKnowledge: false };
   }
 
-  const systemPrompt = `أنت مدير التسويق الاحترافي في شركة Mango AI. شركتنا متخصصة في أنظمة CRM وأتمتة التسويق بالذكاء الاصطناعي.
+  const knowledgeBase = await getCompanyKnowledge();
+  const hasKnowledge = knowledgeBase.length > 50;
 
-تعليمات هامة جداً:
-1. اقرأ رسالة العميل بدقة وأجب على سؤاله الأخير فقط بشكل مباشر.
-2. إذا سأل عن السعر: قدم نطاقاً بين 1000$ و5000$ حسب التعقيد، وركز على العائد على الاستثمار (ROI)، ثم ادعه لاجتماع.
-3. إذا طلب خدمة خارج نطاقنا: لا ترفض، بل رشح له أدوات عالمية موثوقة واعرض التكامل معها.
-4. اختم دائماً بـ: "مع التحية، فريق Mango AI"
-5. ممنوع استخدام عبارة "رسالة تسويقية ذكية".
-6. الرد يجب أن يكون مختصراً ومهنياً وباللغة العربية الفصحى.`;
+  let systemPrompt = `أنت مدير التسويق الاحترافي في شركة Mango AI.
+
+تعليمات صارمة:
+1. أجب فقط بناءً على المعلومات الموجودة أدناه في [قاعدة معرفة الشركة]. لا تخترع أو تتخيل معلومات غير موجودة.
+2. إذا سأل العميل سؤالاً لا تجد إجابته في قاعدة المعرفة، اكتب: "أحتاج التحقق من هذه المعلومة مع الإدارة وسأعود إليك قريباً."
+3. اختم دائماً بـ: "مع التحية، فريق Mango AI"
+4. ممنوع استخدام عبارة "رسالة تسويقية ذكية".
+5. الرد مختصر، مهني، وباللغة العربية الفصحى.
+6. إذا سأل عن الأسعار، ركز على القيمة والعائد على الاستثمار (ROI) ثم ادعه لاجتماع.
+7. إذا طلب خدمة خارج نطاقنا، رشح أدوات عالمية موثوقة كمستشار.`;
+
+  if (hasKnowledge) {
+    systemPrompt += `\n\n[قاعدة معرفة الشركة]:\n${knowledgeBase}`;
+  } else {
+    systemPrompt += '\n\n[تنبيه]: لا توجد معلومات في قاعدة المعرفة بعد. أجب بشكل عام واطلب من العميل الانتظار.';
+  }
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -37,24 +64,23 @@ async function generateAutoReply(customerEmail: string, messageText: string): Pr
         model: 'openai/gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `رسالة من عميل (${customerEmail}):\n"""\n${messageText}\n"""\n\nاكتب رداً احترافياً مباشراً. لا تضع مقدمات أو تعليقات، فقط نص الرد الجاهز للإرسال.` }
+          { role: 'user', content: `رسالة من عميل (${customerEmail}):\n"""\n${messageText}\n"""\n\nاكتب رداً احترافياً مباشراً. فقط نص الرد الجاهز للإرسال.` }
         ]
-        // NO tools here — we need a plain text response always
       })
     });
 
     if (!response.ok) {
       const errText = await response.text();
       console.error('OpenRouter API error:', response.status, errText);
-      return null;
+      return { text: null, hasKnowledge };
     }
 
     const data = await response.json();
     const text = data?.choices?.[0]?.message?.content;
-    return text || null;
+    return { text: text || null, hasKnowledge };
   } catch (err) {
     console.error('OpenRouter fetch error:', err);
-    return null;
+    return { text: null, hasKnowledge };
   }
 }
 
@@ -148,28 +174,54 @@ export async function POST(request: Request) {
       console.error('Error saving to inbox:', inboxError);
     }
 
-    // 2. Generate AI Draft using OpenRouter (no tools = always plain text)
-    const aiDraftText = await generateAutoReply(sender, textBody);
+    // 2. Generate AI reply using company knowledge
+    const aiResult = await generateAutoReply(sender, textBody);
 
-    // 3. Update inbox doc with draft — owner reviews and approves before sending
-    if (inboxDocRef) {
-      try {
-        await updateDoc(inboxDocRef, {
-          aiDraft: aiDraftText || null,
-          status: aiDraftText ? 'DRAFT' : 'AI_FAILED',
-          subject: emailData.subject || null
-        });
-      } catch (e) {
-        console.error('Failed to update inbox doc with draft', e);
+    if (aiResult.text && aiResult.hasKnowledge) {
+      // Knowledge exists → auto-send reply
+      await executeEmailAction(
+        sender,
+        `رد: ${emailData.subject || 'رسالة من فريق Mango AI'}`,
+        `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; font-size: 15px;">
+          ${aiResult.text.replace(/\n/g, '<br>')}
+        </div>`
+      );
+
+      if (inboxDocRef) {
+        try {
+          await updateDoc(inboxDocRef, {
+            finalResponse: aiResult.text,
+            status: 'COMPLETED',
+            subject: emailData.subject || null,
+            sentAt: new Date()
+          });
+        } catch (e) {
+          console.error('Failed to update inbox doc', e);
+        }
       }
-    }
 
-    return NextResponse.json({
-      success: true,
-      message: aiDraftText
-        ? 'Draft saved — awaiting owner approval to send'
-        : 'AI failed to generate draft'
-    });
+      return NextResponse.json({ success: true, message: 'Auto-reply sent (knowledge-based)' });
+    } else {
+      // No knowledge or AI failed → save as draft for owner review
+      if (inboxDocRef) {
+        try {
+          await updateDoc(inboxDocRef, {
+            aiDraft: aiResult.text || null,
+            status: aiResult.text ? 'DRAFT' : 'AI_FAILED',
+            subject: emailData.subject || null
+          });
+        } catch (e) {
+          console.error('Failed to update inbox doc with draft', e);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: aiResult.text
+          ? 'Draft saved — awaiting owner approval (no knowledge base yet)'
+          : 'AI failed to generate draft'
+      });
+    }
 
   } catch (error: any) {
     console.error('Webhook Error:', error);
