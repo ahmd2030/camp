@@ -24,11 +24,11 @@ async function getCompanyKnowledge(): Promise<string> {
 }
 
 // Generate AI reply using company knowledge + OpenRouter
-async function generateAutoReply(customerEmail: string, messageText: string): Promise<{ text: string | null; hasKnowledge: boolean }> {
+async function generateAutoReply(customerEmail: string, messageText: string): Promise<{ text: string | null; suggestedTime: string | null; hasKnowledge: boolean }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.error('No OPENROUTER_API_KEY found in environment');
-    return { text: null, hasKnowledge: false };
+    return { text: null, suggestedTime: null, hasKnowledge: false };
   }
 
   const knowledgeBase = await getCompanyKnowledge();
@@ -37,13 +37,15 @@ async function generateAutoReply(customerEmail: string, messageText: string): Pr
   let systemPrompt = `أنت مدير التسويق الاحترافي في شركة Mango AI.
 
 تعليمات صارمة:
-1. أجب فقط بناءً على المعلومات الموجودة أدناه في [قاعدة معرفة الشركة]. لا تخترع أو تتخيل معلومات غير موجودة.
-2. إذا سأل العميل سؤالاً لا تجد إجابته في قاعدة المعرفة، اكتب: "أحتاج التحقق من هذه المعلومة مع الإدارة وسأعود إليك قريباً."
-3. اختم دائماً بـ: "مع التحية، فريق Mango AI"
-4. ممنوع استخدام عبارة "رسالة تسويقية ذكية".
-5. الرد مختصر، مهني، وباللغة العربية الفصحى.
-6. إذا سأل عن الأسعار، ركز على القيمة والعائد على الاستثمار (ROI) ثم ادعه لاجتماع.
-7. إذا طلب خدمة خارج نطاقنا، رشح أدوات عالمية موثوقة كمستشار.`;
+1. أجب فقط بناءً على المعلومات الموجودة أدناه في [قاعدة معرفة الشركة]. لا تخترع معلومات غير موجودة.
+2. إذا سأل العميل سؤالاً لا تجد إجابته في قاعدة المعرفة، اكتب في الرد: "أحتاج التحقق من هذه المعلومة مع الإدارة وسأعود إليك قريباً."
+3. الرد مختصر، مهني، وباللغة العربية الفصحى، واختم بـ "فريق Mango AI".
+4. ادرس رسالة العميل (ودومين الإيميل إن وجد)، وخمن دولته ودوامه الرسمي.
+5. يجب أن ترجع النتيجة بصيغة JSON فقط بهذا الشكل:
+{
+  "replyText": "نص الرد الجاهز للإرسال للعميل",
+  "suggestedTime": "نصيحة قصيرة جداً لمديرك عن أفضل وقت لإرسال هذا الرد (مثال: 💡 يبدو أن العميل من السعودية، أفضل وقت للإرسال غداً 10 صباحاً)"
+}`;
 
   if (hasKnowledge) {
     systemPrompt += `\n\n[قاعدة معرفة الشركة]:\n${knowledgeBase}`;
@@ -64,23 +66,33 @@ async function generateAutoReply(customerEmail: string, messageText: string): Pr
         model: 'openai/gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `رسالة من عميل (${customerEmail}):\n"""\n${messageText}\n"""\n\nاكتب رداً احترافياً مباشراً. فقط نص الرد الجاهز للإرسال.` }
+          { role: 'user', content: `رسالة من عميل (${customerEmail}):\n"""\n${messageText}\n"""` }
         ]
       })
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('OpenRouter API error:', response.status, errText);
-      return { text: null, hasKnowledge };
+      return { text: null, suggestedTime: null, hasKnowledge };
     }
 
     const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content;
-    return { text: text || null, hasKnowledge };
+    const rawContent = data?.choices?.[0]?.message?.content || '';
+    
+    // Parse JSON
+    try {
+      const cleanJson = rawContent.replace(/```json/gi, '').replace(/```/gi, '').trim();
+      const parsed = JSON.parse(cleanJson);
+      return { 
+        text: parsed.replyText || null, 
+        suggestedTime: parsed.suggestedTime || null,
+        hasKnowledge 
+      };
+    } catch (parseErr) {
+      console.error('Failed to parse AI JSON:', parseErr, rawContent);
+      return { text: rawContent, suggestedTime: null, hasKnowledge };
+    }
   } catch (err) {
-    console.error('OpenRouter fetch error:', err);
-    return { text: null, hasKnowledge };
+    return { text: null, suggestedTime: null, hasKnowledge };
   }
 }
 
@@ -177,51 +189,26 @@ export async function POST(request: Request) {
     // 2. Generate AI reply using company knowledge
     const aiResult = await generateAutoReply(sender, textBody);
 
-    if (aiResult.text && aiResult.hasKnowledge) {
-      // Knowledge exists → auto-send reply
-      await executeEmailAction(
-        sender,
-        `رد: ${emailData.subject || 'رسالة من فريق Mango AI'}`,
-        `<div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; font-size: 15px;">
-          ${aiResult.text.replace(/\n/g, '<br>')}
-        </div>`
-      );
-
-      if (inboxDocRef) {
-        try {
-          await updateDoc(inboxDocRef, {
-            finalResponse: aiResult.text,
-            status: 'COMPLETED',
-            subject: emailData.subject || null,
-            sentAt: new Date()
-          });
-        } catch (e) {
-          console.error('Failed to update inbox doc', e);
-        }
+    // Save as draft for owner review with time recommendation
+    if (inboxDocRef) {
+      try {
+        await updateDoc(inboxDocRef, {
+          aiDraft: aiResult.text || null,
+          suggestedTime: aiResult.suggestedTime || null,
+          status: aiResult.text ? 'DRAFT' : 'AI_FAILED',
+          subject: emailData.subject || null,
+          hasKnowledge: aiResult.hasKnowledge
+        });
+      } catch (e) {
+        console.error('Failed to update inbox doc with draft', e);
       }
-
-      return NextResponse.json({ success: true, message: 'Auto-reply sent (knowledge-based)' });
-    } else {
-      // No knowledge or AI failed → save as draft for owner review
-      if (inboxDocRef) {
-        try {
-          await updateDoc(inboxDocRef, {
-            aiDraft: aiResult.text || null,
-            status: aiResult.text ? 'DRAFT' : 'AI_FAILED',
-            subject: emailData.subject || null
-          });
-        } catch (e) {
-          console.error('Failed to update inbox doc with draft', e);
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: aiResult.text
-          ? 'Draft saved — awaiting owner approval (no knowledge base yet)'
-          : 'AI failed to generate draft'
-      });
     }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Draft saved with time recommendation',
+      hasKnowledge: aiResult.hasKnowledge
+    });
 
   } catch (error: any) {
     console.error('Webhook Error:', error);

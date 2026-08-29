@@ -24,6 +24,7 @@ interface RawMessage {
   finalResponse?: string;
   aiDraft?: string;
   aiDraftResponse?: string;
+  suggestedTime?: string;
   status?: string;
   subject?: string;
   source?: string;
@@ -40,6 +41,7 @@ interface Conversation {
     id: string;
     type: "inbound" | "outbound" | "ai_reply" | "draft";
     text: string;
+    suggestedTime?: string;
     timestamp: Date;
     sender: "client" | "ai" | "system";
     rawDocId?: string;
@@ -108,6 +110,7 @@ export default function InboxChatCRM() {
           timestamp: new Date(createdAt.getTime() + 500),
           rawDocId: data.id,
           aiDraft: data.aiDraft,
+          suggestedTime: data.suggestedTime,
           subject: data.subject,
           status: "DRAFT",
         });
@@ -363,6 +366,12 @@ export default function InboxChatCRM() {
                       {/* Editable draft bubble */}
                       <div className="flex gap-3 justify-end w-full min-w-0">
                         <div className="max-w-[90%] md:max-w-[75%] flex flex-col items-end min-w-0 w-full">
+                          {msg.suggestedTime && (
+                            <div className="w-full bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold rounded-xl px-4 py-3 mb-2 flex items-start gap-2 text-right leading-relaxed">
+                              <Clock className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" />
+                              <span>{msg.suggestedTime}</span>
+                            </div>
+                          )}
                           <textarea
                             dir="rtl"
                             rows={6}
