@@ -28,7 +28,7 @@ async function generateAutoReply(customerEmail: string, messageText: string): Pr
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.error('No OPENROUTER_API_KEY found in environment');
-    return { text: null, suggestedTime: null, hasKnowledge: false };
+    return { text: null, suggestedTime: null, delayHours: 0, hasKnowledge: false };
   }
 
   const knowledgeBase = await getCompanyKnowledge();
