@@ -24,7 +24,7 @@ async function getCompanyKnowledge(): Promise<string> {
 }
 
 // Generate AI reply using company knowledge + OpenRouter
-async function generateAutoReply(customerEmail: string, messageText: string): Promise<{ text: string | null; suggestedTime: string | null; hasKnowledge: boolean }> {
+async function generateAutoReply(customerEmail: string, messageText: string): Promise<{ text: string | null; suggestedTime: string | null; delayHours: number; hasKnowledge: boolean }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     console.error('No OPENROUTER_API_KEY found in environment');
@@ -44,8 +44,10 @@ async function generateAutoReply(customerEmail: string, messageText: string): Pr
 5. يجب أن ترجع النتيجة بصيغة JSON فقط بهذا الشكل:
 {
   "replyText": "نص الرد الجاهز للإرسال للعميل",
-  "suggestedTime": "نصيحة قصيرة جداً لمديرك عن أفضل وقت لإرسال هذا الرد (مثال: 💡 يبدو أن العميل من السعودية، أفضل وقت للإرسال غداً 10 صباحاً)"
-}`;
+  "suggestedTime": "رسالة لك توضح متى سيتم الإرسال (مثال: 💡 سيتم إرسال الرد تلقائياً غداً الساعة 9 صباحاً بتوقيت العميل)",
+  "delayHours": 14
+}
+(ضع في delayHours عدد الساعات التي يجب أن ينتظرها النظام قبل الإرسال. ضع 0 إذا كان الوقت الحالي مناسباً للإرسال فوراً).`;
 
   if (hasKnowledge) {
     systemPrompt += `\n\n[قاعدة معرفة الشركة]:\n${knowledgeBase}`;
@@ -72,7 +74,7 @@ async function generateAutoReply(customerEmail: string, messageText: string): Pr
     });
 
     if (!response.ok) {
-      return { text: null, suggestedTime: null, hasKnowledge };
+      return { text: null, suggestedTime: null, delayHours: 0, hasKnowledge };
     }
 
     const data = await response.json();
@@ -85,14 +87,15 @@ async function generateAutoReply(customerEmail: string, messageText: string): Pr
       return { 
         text: parsed.replyText || null, 
         suggestedTime: parsed.suggestedTime || null,
+        delayHours: parsed.delayHours || 0,
         hasKnowledge 
       };
     } catch (parseErr) {
       console.error('Failed to parse AI JSON:', parseErr, rawContent);
-      return { text: rawContent, suggestedTime: null, hasKnowledge };
+      return { text: rawContent, suggestedTime: null, delayHours: 0, hasKnowledge };
     }
   } catch (err) {
-    return { text: null, suggestedTime: null, hasKnowledge };
+    return { text: null, suggestedTime: null, delayHours: 0, hasKnowledge };
   }
 }
 
@@ -189,18 +192,24 @@ export async function POST(request: Request) {
     // 2. Generate AI reply using company knowledge
     const aiResult = await generateAutoReply(sender, textBody);
 
-    // Save as draft for owner review with time recommendation
+    // Save as draft for owner review with time recommendation, or schedule it if knowledge exists
     if (inboxDocRef) {
       try {
+        let scheduledAt = null;
+        if (aiResult.hasKnowledge && aiResult.delayHours >= 0) {
+           scheduledAt = new Date(Date.now() + aiResult.delayHours * 60 * 60 * 1000);
+        }
+
         await updateDoc(inboxDocRef, {
           aiDraft: aiResult.text || null,
           suggestedTime: aiResult.suggestedTime || null,
-          status: aiResult.text ? 'DRAFT' : 'AI_FAILED',
+          scheduledAt: scheduledAt,
+          status: aiResult.text ? (scheduledAt ? 'SCHEDULED' : 'DRAFT') : 'AI_FAILED',
           subject: emailData.subject || null,
           hasKnowledge: aiResult.hasKnowledge
         });
       } catch (e) {
-        console.error('Failed to update inbox doc with draft', e);
+        console.error('Failed to update inbox doc with draft/scheduled', e);
       }
     }
 

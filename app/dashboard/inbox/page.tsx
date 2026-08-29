@@ -25,6 +25,7 @@ interface RawMessage {
   aiDraft?: string;
   aiDraftResponse?: string;
   suggestedTime?: string;
+  scheduledAt?: any;
   status?: string;
   subject?: string;
   source?: string;
@@ -39,9 +40,10 @@ interface Conversation {
   hasPendingDraft: boolean;
   messages: {
     id: string;
-    type: "inbound" | "outbound" | "ai_reply" | "draft";
+    type: "inbound" | "outbound" | "ai_reply" | "draft" | "scheduled";
     text: string;
     suggestedTime?: string;
+    scheduledAt?: Date;
     timestamp: Date;
     sender: "client" | "ai" | "system";
     rawDocId?: string;
@@ -50,6 +52,38 @@ interface Conversation {
     status?: string;
   }[];
   lastActivity: Date;
+}
+
+function CountdownTimer({ targetDate, onComplete }: { targetDate: Date, onComplete: () => void }) {
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    const calculateTime = () => {
+      const now = new Date();
+      const diff = targetDate.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        setTimeLeft("جاري الإرسال...");
+        onComplete();
+        return;
+      }
+
+      const h = Math.floor(diff / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      let str = "";
+      if (h > 0) str += `${h} ساعة و `;
+      str += `${m} دقيقة و ${s} ثانية`;
+      setTimeLeft(str);
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate, onComplete]);
+
+  return <span className="font-mono text-sm px-2 py-1 bg-amber-100 text-amber-800 rounded-md">{timeLeft}</span>;
 }
 
 export default function InboxChatCRM() {
@@ -100,19 +134,20 @@ export default function InboxChatCRM() {
         });
       }
 
-      if (data.status === "DRAFT" && data.aiDraft) {
-        convo.hasPendingDraft = true;
+      if ((data.status === "DRAFT" || data.status === "SCHEDULED") && data.aiDraft) {
+        convo.hasPendingDraft = data.status === "DRAFT"; // don't flag as pending if scheduled
         convo.messages.push({
           id: data.id + "_draft",
-          type: "draft",
+          type: data.status === "SCHEDULED" ? "scheduled" : "draft",
           sender: "ai",
           text: data.aiDraft,
           timestamp: new Date(createdAt.getTime() + 500),
           rawDocId: data.id,
           aiDraft: data.aiDraft,
           suggestedTime: data.suggestedTime,
+          scheduledAt: data.scheduledAt ? new Date(data.scheduledAt.toMillis ? data.scheduledAt.toMillis() : data.scheduledAt) : undefined,
           subject: data.subject,
-          status: "DRAFT",
+          status: data.status,
         });
       } else if (data.finalResponse || data.aiDraftResponse) {
         convo.messages.push({
@@ -343,7 +378,7 @@ export default function InboxChatCRM() {
             <div className="flex-1 p-4 md:p-6 overflow-y-auto bg-slate-50 space-y-6 w-full min-w-0">
               {selectedConvo.messages.map((msg) => {
                 const isClient = msg.sender === "client";
-                const isDraft = msg.type === "draft";
+                const isDraft = msg.type === "draft" || msg.type === "scheduled";
                 const isAI = msg.sender === "ai" && !isDraft;
                 const docId = msg.rawDocId || "";
 
@@ -357,9 +392,9 @@ export default function InboxChatCRM() {
                     <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-3">
                       {/* Draft label */}
                       <div className="flex justify-end">
-                        <div className="flex items-center gap-2 text-orange-600 text-xs font-bold bg-orange-50 border border-orange-200 rounded-xl px-4 py-2">
-                          <Edit3 className="w-3 h-3" />
-                          مسودة مدير التسويق — راجع وعدّل ثم أرسل
+                        <div className={`flex items-center gap-2 text-xs font-bold border rounded-xl px-4 py-2 ${msg.type === 'scheduled' ? 'text-amber-600 bg-amber-50 border-amber-200' : 'text-orange-600 bg-orange-50 border-orange-200'}`}>
+                          {msg.type === 'scheduled' ? <Clock className="w-3 h-3 animate-pulse" /> : <Edit3 className="w-3 h-3" />}
+                          {msg.type === 'scheduled' ? 'مجدول للإرسال تلقائياً بناءً على تحليل الوقت' : 'مسودة مدير التسويق — راجع وعدّل ثم أرسل'}
                         </div>
                       </div>
 
@@ -369,26 +404,53 @@ export default function InboxChatCRM() {
                           {msg.suggestedTime && (
                             <div className="w-full bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold rounded-xl px-4 py-3 mb-2 flex items-start gap-2 text-right leading-relaxed">
                               <Clock className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" />
-                              <span>{msg.suggestedTime}</span>
+                              <div className="flex flex-col gap-1 w-full">
+                                <span>{msg.suggestedTime}</span>
+                                {msg.type === 'scheduled' && msg.scheduledAt && (
+                                  <div className="mt-1 font-bold text-amber-700 flex items-center gap-2">
+                                    وقت الإرسال المتبقي: 
+                                    <CountdownTimer 
+                                      targetDate={msg.scheduledAt} 
+                                      onComplete={() => {
+                                        if (!sending[docId]) {
+                                          handleSendDraft(docId, selectedConvo.email, msg.subject, draftText[docId] ?? msg.aiDraft);
+                                        }
+                                      }} 
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                           <textarea
                             dir="rtl"
                             rows={6}
-                            className="w-full px-5 py-4 rounded-2xl rounded-tl-none border-2 border-orange-300 bg-orange-50 text-slate-800 text-sm font-medium leading-relaxed focus:outline-none focus:border-orange-500 resize-none shadow-sm"
+                            className={`w-full px-5 py-4 rounded-2xl rounded-tl-none border-2 text-slate-800 text-sm font-medium leading-relaxed focus:outline-none resize-none shadow-sm ${msg.type === 'scheduled' ? 'border-amber-300 bg-amber-50 focus:border-amber-500' : 'border-orange-300 bg-orange-50 focus:border-orange-500'}`}
                             value={draftText[docId] ?? msg.aiDraft ?? ""}
                             onChange={(e) => setDraftText((d) => ({ ...d, [docId]: e.target.value }))}
                             placeholder="اكتب ردك هنا..."
+                            disabled={msg.type === 'scheduled'}
                           />
                           <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={() => handleSendDraft(docId, selectedConvo.email, msg.subject, draftText[docId] ?? msg.aiDraft)}
-                              disabled={sending[docId]}
-                              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:opacity-50 shadow-sm transition"
-                            >
-                              {sending[docId] ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                              {sending[docId] ? "جارٍ الإرسال..." : "إرسال للعميل ✓"}
-                            </button>
+                            {msg.type === 'scheduled' ? (
+                              <button
+                                onClick={() => handleSendDraft(docId, selectedConvo.email, msg.subject, draftText[docId] ?? msg.aiDraft)}
+                                disabled={sending[docId]}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition"
+                              >
+                                {sending[docId] ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                {sending[docId] ? "جارٍ الإرسال..." : "تخطي الانتظار والإرسال الآن"}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleSendDraft(docId, selectedConvo.email, msg.subject, draftText[docId] ?? msg.aiDraft)}
+                                disabled={sending[docId]}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:opacity-50 shadow-sm transition"
+                              >
+                                {sending[docId] ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                {sending[docId] ? "جارٍ الإرسال..." : "إرسال للعميل ✓"}
+                              </button>
+                            )}
                           </div>
                           <div className="text-[10px] font-bold text-orange-400 mt-1.5 px-1 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
