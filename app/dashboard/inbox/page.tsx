@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
@@ -23,6 +23,7 @@ interface RawMessage {
   customerRequest?: string;
   finalResponse?: string;
   aiDraft?: string;
+  aiDraftResponse?: string;
   status?: string;
   subject?: string;
   source?: string;
