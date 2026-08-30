@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 
 export async function POST(req: Request) {
   try {
@@ -16,9 +16,11 @@ export async function POST(req: Request) {
 
     const systemPrompt = `أنت المساعد الإداري الذكي (System Admin) لنظام Mango AI.
 أنت تتحدث الآن مع مالك النظام (المدير).
-مهمتك هي مناقشة الاستراتيجيات معه، وتلقي أي تعليمات أو قواعد جديدة (مثلاً لقسم المحاسبة، المبيعات، أو الدعم الفني).
-إذا طلب منك المدير حفظ معلومة أو تعليمات لقسم معين، يجب عليك استخدام الأداة (Tool) المسماة "save_knowledge" لحفظ هذه القاعدة في "عقل النظام" (قاعدة المعرفة)، لكي يتعلمها النظام وتطبقها الأقسام المعنية لاحقاً.
-أجب دائماً باحترافية، احترام، وباللغة العربية. أكد للمدير دائماً عندما تقوم بحفظ أي قاعدة جديدة.`;
+صلاحياتك الحالية:
+1. مناقشة الاستراتيجيات وتلقي أي تعليمات أو قواعد جديدة. إذا طلب منك المدير حفظ معلومة أو تعليمات لقسم معين، يجب عليك استخدام أداة "save_knowledge".
+2. تحليل البيانات واستخراج التقارير. إذا سألك المدير عن أداء المبيعات، الإحصائيات، عدد العملاء، أو طلب تقريراً عن النظام، يجب عليك استخدام أداة "fetch_system_report" لجلب البيانات الحقيقية من قاعدة البيانات وعرضها بشكل منسق ومقنع.
+
+أجب دائماً باحترافية، احترام، وباللغة العربية. أكد للمدير دائماً عندما تقوم بتنفيذ أي أداة.`;
 
     const fullMessages = [
       { role: 'system', content: systemPrompt },
@@ -39,6 +41,18 @@ export async function POST(req: Request) {
               category: { type: 'string', description: 'القسم المعني (مثال: accounting, sales, general)' }
             },
             required: ['topic', 'rule', 'category']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'fetch_system_report',
+          description: 'جلب تقرير وإحصائيات حقيقية من قاعدة البيانات (عدد المراسلات، العملاء، الرسائل، الاجتماعات) لعرضها للمدير.',
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: []
           }
         }
       }
@@ -82,7 +96,6 @@ export async function POST(req: Request) {
         if (toolCall.function.name === 'save_knowledge') {
           const args = JSON.parse(toolCall.function.arguments);
           
-          // Save to Firestore
           try {
             await addDoc(collection(db, 'company_knowledge'), {
               question: args.topic,
@@ -96,12 +109,55 @@ export async function POST(req: Request) {
             console.error('Failed to save knowledge', dbErr);
           }
 
-          // Append tool result
           currentMessages.push({
             role: 'tool',
             tool_call_id: toolCall.id,
             name: 'save_knowledge',
             content: `تم حفظ القاعدة بنجاح في قسم ${args.category}. أخبر المدير بذلك.`
+          });
+          
+          continue; // loop again to let AI respond
+        }
+
+        if (toolCall.function.name === 'fetch_system_report') {
+          console.log('Fetching system report for Admin Chat...');
+          let reportData = {
+            totalSentLeads: 0,
+            totalOpened: 0,
+            totalMeetings: 0,
+            pendingAffiliateRequests: 0,
+            unreadInboxMessages: 0
+          };
+
+          try {
+            // Sent Leads
+            const leadsSnap = await getDocs(collection(db, 'sent_leads'));
+            reportData.totalSentLeads = leadsSnap.size;
+            leadsSnap.forEach(doc => {
+              if (doc.data().opened) reportData.totalOpened++;
+            });
+
+            // Meetings
+            const meetingsSnap = await getDocs(query(collection(db, 'meetings'), where('status', '==', 'scheduled')));
+            reportData.totalMeetings = meetingsSnap.size;
+
+            // Pending Requests
+            const requestsSnap = await getDocs(query(collection(db, 'requests'), where('status', '==', 'PENDING_AFFILIATE')));
+            reportData.pendingAffiliateRequests = requestsSnap.size;
+
+            // Unread Inbox
+            const inboxSnap = await getDocs(query(collection(db, 'contact_messages'), where('status', 'in', ['NEW', 'DRAFT'])));
+            reportData.unreadInboxMessages = inboxSnap.size;
+
+          } catch (dbErr) {
+            console.error('Failed to fetch report metrics', dbErr);
+          }
+
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: 'fetch_system_report',
+            content: `هذه هي إحصائيات النظام الحالية:\n${JSON.stringify(reportData, null, 2)}\n\nقم بصياغة تقرير إداري ملخص بناءً على هذه الأرقام للمدير.`
           });
           
           continue; // loop again to let AI respond
