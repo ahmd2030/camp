@@ -260,6 +260,27 @@ export default function InboxChatCRM() {
 
   const selectedConvo = conversations.find((c) => c.email === selectedEmail);
 
+  const unreadCount = conversations.filter((c) => c.hasPendingDraft).length;
+
+  // Mark conversation as READ when selected
+  useEffect(() => {
+    if (selectedConvo) {
+      const markAsRead = async () => {
+        try {
+          const { updateDoc, doc } = await import('firebase/firestore');
+          // Find all messages in this conversation that are 'NEW'
+          const newMsgs = selectedConvo.messages.filter(m => m.status === 'NEW' && m.rawDocId);
+          for (const msg of newMsgs) {
+            await updateDoc(doc(db, 'contact_messages', msg.rawDocId!), { status: 'READ' });
+          }
+        } catch (e) {
+          console.error('Failed to mark as read', e);
+        }
+      };
+      markAsRead();
+    }
+  }, [selectedConvo]);
+
   return (
     <div className="h-[85vh] w-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row" dir="rtl">
       <Toaster position="top-center" richColors />

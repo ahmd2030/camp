@@ -2,6 +2,8 @@ import React from "react";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 
+import AdminChat from "@/components/AdminChat";
+
 export const maxDuration = 60;
 
 export default function DashboardLayout({
@@ -20,10 +22,12 @@ export default function DashboardLayout({
         <Navbar />
         
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 bg-gray-50 min-w-0 w-full">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 bg-gray-50 min-w-0 w-full relative">
           {children}
         </main>
       </div>
+
+      <AdminChat />
     </div>
   );
 }
