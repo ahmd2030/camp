@@ -16,30 +16,16 @@
     --sidebar-bg: #1e293b; /* Slate 800 */
     --sidebar-fg: #f1f5f9; /* Slate 100 */
   }
-
-  /* Optional Dark Mode - For now we focus on a clean light theme, but it's easily extendable */
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --background: #0f172a;
-      --foreground: #f8fafc;
-      
-      --primary: #6366f1; /* Indigo 500 */
-      
-      --card: #1e293b;
-      --card-foreground: #f8fafc;
-      
-      --border: #334155;
-      
-      --sidebar-bg: #0f172a;
-      --sidebar-fg: #f1f5f9;
-    }
-  }
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif; /* We can add Google fonts like 'Inter' later */
+}
+
+input, textarea, select {
+  color: var(--foreground);
 }
 
 /* Custom Scrollbar for a premium feel */

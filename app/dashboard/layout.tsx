@@ -12,11 +12,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   return (
+    <>
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <Sidebar />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col md:pr-64 transition-all duration-300 min-w-0">
         {/* Top Navigation */}
         <Navbar />
@@ -26,8 +26,8 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
-
-      <AdminChat />
     </div>
+    <AdminChat />
+    </>
   );
 }

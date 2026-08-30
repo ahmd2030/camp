@@ -139,7 +139,8 @@ export default function AdminChat() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 left-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-2xl flex items-center justify-center z-50 transition-colors relative"
+          className="fixed w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-2xl flex items-center justify-center z-[9999] transition-colors"
+          style={{ bottom: '24px', left: '24px' }}
           title="محادثة الإدارة"
         >
           <Bot className="w-7 h-7" />
@@ -154,7 +155,8 @@ export default function AdminChat() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className={`fixed left-6 bottom-6 w-80 md:w-[400px] bg-white rounded-2xl shadow-2xl z-50 flex flex-col border border-indigo-100 overflow-hidden transition-all duration-300 ${isMinimized ? '' : 'max-h-[80vh] h-[500px]'}`}
+          className={`fixed w-80 md:w-[400px] bg-white rounded-2xl shadow-2xl z-[9999] flex flex-col border border-indigo-100 overflow-hidden transition-all duration-300 ${isMinimized ? '' : 'max-h-[80vh] h-[500px]'}`}
+          style={{ bottom: '24px', left: '24px' }}
           dir="rtl"
         >
           {/* Header */}
@@ -233,7 +235,7 @@ export default function AdminChat() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="اكتب تعليماتك للإدارة هنا..."
-                  className="flex-1 max-h-32 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  className="flex-1 max-h-32 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                   rows={1}
                 />
                 <button
