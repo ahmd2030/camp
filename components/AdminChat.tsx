@@ -12,10 +12,20 @@ export default function AdminChat() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const playNotificationSound = () => {
+    try {
+      // A simple short pop sound in base64
+      const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAD//wEA");
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log('Audio play blocked by browser', e));
+    } catch (e) {}
   };
 
   // Load chat history on mount
@@ -28,6 +38,47 @@ export default function AdminChat() {
     } catch (e) {
       console.error('Failed to load chat history', e);
     }
+
+    // Proactive check on mount
+    const checkProactiveAlerts = async () => {
+      try {
+        const lastCheck = localStorage.getItem('adminChatLastCheck');
+        const now = Date.now();
+        // Only check once every 10 minutes to avoid spamming
+        if (lastCheck && now - parseInt(lastCheck) < 10 * 60 * 1000) return;
+        
+        localStorage.setItem('adminChatLastCheck', now.toString());
+        
+        const res = await fetch('/api/admin-proactive');
+        const data = await res.json();
+        
+        if (data.message) {
+          setMessages(prev => {
+            // Check if this exact message is already the last one
+            if (prev[prev.length - 1]?.content === data.message) return prev;
+            
+            const newMessages = [...prev, { role: 'assistant', content: data.message }];
+            
+            // If chat is closed, show badge and play sound
+            setIsOpen(currentIsOpen => {
+              if (!currentIsOpen) {
+                setUnreadCount(c => c + 1);
+                playNotificationSound();
+              }
+              return currentIsOpen;
+            });
+            
+            return newMessages;
+          });
+        }
+      } catch (e) {
+        console.error('Proactive check failed', e);
+      }
+    };
+
+    // Delay the check slightly so it doesn't block initial render
+    const timer = setTimeout(checkProactiveAlerts, 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   // Save chat history on update
@@ -42,6 +93,7 @@ export default function AdminChat() {
   useEffect(() => {
     if (isOpen && !isMinimized) {
       scrollToBottom();
+      setUnreadCount(0); // Clear unread when opened
     }
   }, [messages, isOpen, isMinimized]);
 
@@ -91,10 +143,15 @@ export default function AdminChat() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 left-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-2xl flex items-center justify-center z-50 transition-colors"
+            className="fixed bottom-6 left-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-2xl flex items-center justify-center z-50 transition-colors relative"
             title="محادثة الإدارة"
           >
             <Bot className="w-7 h-7" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white animate-bounce">
+                {unreadCount}
+              </span>
+            )}
           </motion.button>
         )}
       </AnimatePresence>
