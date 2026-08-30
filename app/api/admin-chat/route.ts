@@ -266,8 +266,8 @@ ${existingKnowledgeText}
           let replyContent = '';
           
           try {
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000');
-            const res = await fetch(`${appUrl}/api/mass-campaign`, {
+            const { POST: runMassCampaign } = await import('@/app/api/mass-campaign/route');
+            const mockReq = new Request('http://localhost/api/mass-campaign', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -276,15 +276,16 @@ ${existingKnowledgeText}
                 customProduct: args.customProduct || null
               })
             });
-            
+            const res = await runMassCampaign(mockReq);
             const data = await res.json();
+            
             if (res.ok) {
               replyContent = `تم تشغيل الطيار الآلي بنجاح! معرّف الحملة: ${data.campaignId}. أخبر المدير أن الصاروخ انطلق وسيبدأ بالبحث عن ${args.targetCount} عميل في مجال ${args.searchQuery}.`;
             } else {
-              replyContent = `حدث خطأ أثناء تشغيل الطيار الآلي: ${data.error}`;
+              replyContent = `حدث خطأ أثناء تشغيل الطيار الآلي: ${data.error || JSON.stringify(data)}`;
             }
           } catch (e: any) {
-            replyContent = `تعذر الاتصال بخادم الطيار الآلي: ${e.message}`;
+            replyContent = `تعذر الاتصال بخادم الطيار الآلي داخلياً: ${e.message}`;
           }
 
           currentMessages.push({
@@ -402,7 +403,8 @@ ${existingKnowledgeText}
               const reqData = reqSnap.data();
               const finalEmailContent = reqData.aiDraftResponse.replace(/\[INSERT_AFFILIATE_LINK_HERE\]/g, args.affiliateLink);
               
-              const res = await fetch(`${appUrl}/api/send-approval`, {
+              const { POST: runSendApproval } = await import('@/app/api/send-approval/route');
+              const mockReq = new Request('http://localhost/api/send-approval', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -415,6 +417,8 @@ ${existingKnowledgeText}
                 })
               });
               
+              const res = await runSendApproval(mockReq);
+              
               if (res.ok) {
                 replyContent = `تم الموافقة على الطلب بنجاح وإرسال الإيميل للعميل ${reqData.customerEmail}.`;
               } else {
@@ -422,7 +426,7 @@ ${existingKnowledgeText}
               }
             }
           } catch (e: any) {
-            replyContent = `حدث خطأ أثناء الموافقة: ${e.message}`;
+            replyContent = `حدث خطأ داخلي أثناء الموافقة: ${e.message}`;
           }
 
           currentMessages.push({
