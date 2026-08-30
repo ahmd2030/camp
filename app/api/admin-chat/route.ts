@@ -14,13 +14,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'OPENROUTER_API_KEY is not set' }, { status: 500 });
     }
 
+    // Fetch existing knowledge so the AI has context of what it already learned
+    let existingKnowledgeText = "لا توجد قواعد سابقة.";
+    try {
+      const knowledgeSnap = await getDocs(collection(db, 'company_knowledge'));
+      if (!knowledgeSnap.empty) {
+        const knowledgeItems: string[] = [];
+        knowledgeSnap.forEach(doc => {
+          const data = doc.data();
+          knowledgeItems.push(`- قسم [${data.category}]: ${data.question} -> ${data.answer}`);
+        });
+        existingKnowledgeText = knowledgeItems.join('\n');
+      }
+    } catch (e) {
+      console.error("Failed to fetch knowledge", e);
+    }
+
     const systemPrompt = `أنت المساعد الإداري الذكي (System Admin) لنظام Mango AI.
 أنت تتحدث الآن مع مالك النظام (المدير).
-صلاحياتك الحالية:
-1. مناقشة الاستراتيجيات وتلقي أي تعليمات أو قواعد جديدة. إذا طلب منك المدير حفظ معلومة أو تعليمات لقسم معين، يجب عليك استخدام أداة "save_knowledge".
-2. تحليل البيانات واستخراج التقارير. إذا سألك المدير عن أداء المبيعات، الإحصائيات، عدد العملاء، أو طلب تقريراً عن النظام، يجب عليك استخدام أداة "fetch_system_report" لجلب البيانات الحقيقية من قاعدة البيانات وعرضها بشكل منسق ومقنع.
+أنت ذكي جداً، مبادر، ولديك ذاكرة حديدية بفضل قاعدة المعرفة التي تخزن فيها كل شيء.
 
-أجب دائماً باحترافية، احترام، وباللغة العربية. أكد للمدير دائماً عندما تقوم بتنفيذ أي أداة.`;
+هذه هي القواعد والمعلومات التي تعلمتها مسبقاً (عقل النظام الحالي):
+${existingKnowledgeText}
+
+صلاحياتك الحالية:
+1. التعلم وحفظ القواعد: بادر بذكاء واستخدم أداة "save_knowledge" لحفظ أي استراتيجية، قاعدة تسعير، أو تعليمة جديدة يذكرها المدير في الحديث (حتى لو لم يطلب منك حفظها صراحة). إذا كانت المعلومة جديدة ومهمة للأقسام الأخرى، احفظها فوراً!
+2. تحليل البيانات واستخراج التقارير: استخدم أداة "fetch_system_report" متى ما سأل المدير عن الإحصائيات، عدد العملاء، أو المبيعات.
+
+أجب دائماً باحترافية، وكن استباقياً في اقتراح التحسينات. أكد للمدير دائماً عندما تقوم بحفظ أي قاعدة جديدة في عقلك.`;
 
     const fullMessages = [
       { role: 'system', content: systemPrompt },
