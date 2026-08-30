@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -21,10 +21,34 @@ import {
   Link as LinkIcon,
   GraduationCap
 } from 'lucide-react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const pathname = usePathname();
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'contact_messages'),
+      where('status', 'in', ['NEW', 'DRAFT'])
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Calculate unique emails that have pending messages
+      const uniqueEmails = new Set();
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.email) uniqueEmails.add(data.email);
+      });
+      setPendingCount(uniqueEmails.size);
+    }, (error) => {
+      console.warn("Error fetching pending messages count", error);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
 
@@ -32,7 +56,7 @@ export default function Sidebar() {
     { name: 'الرئيسية', href: '/dashboard', icon: LayoutDashboard },
     { name: 'كشاف العملاء 🔍', href: '/dashboard/scout', icon: Target },
     { name: 'رادار الصيد 🎯', href: '/dashboard/radar', icon: Target },
-    { name: 'صندوق الوارد 📥', href: '/dashboard/inbox', icon: Mail },
+    { name: 'صندوق الوارد 📥', href: '/dashboard/inbox', icon: Mail, badge: pendingCount },
     { name: 'المتابعات الذكية ⏰', href: '/dashboard/followups', icon: Activity },
     { name: 'خزنة الشراكات 💼', href: '/dashboard/vault', icon: Briefcase },
     { name: 'تدريب النظام 🧠', href: '/dashboard/training', icon: GraduationCap },
@@ -79,14 +103,19 @@ export default function Sidebar() {
                 key={item.href} 
                 href={item.href}
                 onClick={() => setIsOpen(false)}
-                className={`flex items-center px-4 py-3 rounded-lg transition-colors duration-200 group
+                className={`flex items-center px-4 py-3 rounded-lg transition-colors duration-200 group relative
                   ${isActive 
                     ? 'bg-orange-50 text-orange-600' 
                     : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
                   }`}
               >
                 <Icon className={`w-5 h-5 ml-3 ${isActive ? 'text-orange-500' : 'text-slate-400 group-hover:text-orange-500'}`} />
-                <span className="font-medium">{item.name}</span>
+                <span className="font-medium flex-1">{item.name}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="mr-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center justify-center min-w-[20px] shadow-sm animate-pulse">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}

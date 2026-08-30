@@ -32,6 +32,7 @@ import { getAndFillNiches } from '@/app/actions/analyst';
 import { analyzeNichesPortfolio } from '@/app/actions/masterAgent';
 import { automateScraping } from '@/app/actions/scraper';
 import { processCampaignLead } from '@/app/actions/campaigns';
+import AdminChat from '@/components/AdminChat';
 
 export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
@@ -826,6 +827,7 @@ export default function DashboardHome() {
         )}
       </AnimatePresence>
 
+      <AdminChat />
     </div>
   );
 }

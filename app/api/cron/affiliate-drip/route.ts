@@ -90,7 +90,7 @@ export async function GET(req: Request) {
         followUpMessage = followUpMessage.replace(/\[AFFILIATE_LINK\]/gi, affiliateLink);
 
         // 3. Link Wrapping & Tracking Pixel
-        const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://mangosai.co'));
         
         // Wrap link
         let trackedEmailContent = followUpMessage.replace(
@@ -158,3 +158,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'حدث خطأ في محرك المتابعة', details: error.message }, { status: 500 });
   }
 }
+

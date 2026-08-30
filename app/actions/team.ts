@@ -54,7 +54,7 @@ async function recordApiUsage(roleId: string, usage: any) {
 }
 
 export async function chatWithTeamMember(roleId: string, message: string, history: ChatMessage[] = []) {
-  if (!process.env.OPENROUTER_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     return { success: false, error: 'مفتاح OPENROUTER_API_KEY مفقود من إعدادات البيئة (Vercel).' };
   }
 
@@ -86,16 +86,16 @@ export async function chatWithTeamMember(roleId: string, message: string, histor
       { role: "user", content: message }
     ];
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: 'POST',
       headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Authorization": `Bearer ${process.env.GEMINI_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
         "X-Title": "Mango AI"
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini", // Fallback reliable model
+        model: "gemini-1.5-flash", // Fallback reliable model
         messages: messages,
         tools: [
             {
@@ -210,16 +210,16 @@ export async function getBoardMemberOpinion(roleId: string, topic: string) {
       { role: "user", content: `موضوع اجتماع مجلس الإدارة المطروح للنقاش:\n\n${topic}\n\nما هو رأيك المهني الصريح من وجهة نظر تخصصك؟` }
     ];
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: 'POST',
       headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Authorization": `Bearer ${process.env.GEMINI_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
         "X-Title": "Mango AI"
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
+        model: "gemini-1.5-flash",
         messages: messages,
         tools: [
           {
@@ -311,7 +311,7 @@ export async function continueChatWithSearch(
   queryStr: string,
   topicContext?: string
 ) {
-  if (!process.env.OPENROUTER_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     return { success: false, error: 'مفتاح OPENROUTER_API_KEY مفقود من إعدادات البيئة (Vercel).' };
   }
 
@@ -384,16 +384,16 @@ ${resultsText}`;
     });
 
     // 3. Call OpenRouter again
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: 'POST',
       headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Authorization": `Bearer ${process.env.GEMINI_API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
         "X-Title": "Mango AI"
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
+        model: "gemini-1.5-flash",
         messages: messages
       })
     });

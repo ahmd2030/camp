@@ -47,7 +47,7 @@ export async function sendTestEmail(emailBody: string, toEmail: string = "test@e
     // Append Tracking Pixel if leadId is provided
     let finalHtmlContent = htmlContent;
     if (leadId) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://mangosai.co'));
       const trackingPixel = `<img src="${appUrl}/api/track?lead_id=${leadId}" width="1" height="1" style="display:none;" />`;
       finalHtmlContent = finalHtmlContent.replace('</body>', `${trackingPixel}\n</body>`);
     }
@@ -69,3 +69,4 @@ export async function sendTestEmail(emailBody: string, toEmail: string = "test@e
     return { success: false, error: error.message || 'فشل إرسال البريد الإلكتروني' };
   }
 }
+

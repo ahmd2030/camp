@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     }
 
     // Link Wrapping (Track Clicks)
-    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://mangosai.co'));
     
     // Replace hrefs in the email with our tracking URL
     let trackedEmailContent = finalEmailContent.replace(
@@ -68,3 +68,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'حدث خطأ أثناء الإرسال', details: error.message }, { status: 500 });
   }
 }
+
