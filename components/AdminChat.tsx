@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Send, X, MessageSquare, Loader2, Minimize2, Maximize2 } from 'lucide-react';
+import { Bot, Send, X, MessageSquare, Loader2, Minimize2, Maximize2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminChat() {
@@ -17,6 +17,27 @@ export default function AdminChat() {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  // Load chat history on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('adminChatHistory');
+      if (saved) {
+        setMessages(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error('Failed to load chat history', e);
+    }
+  }, []);
+
+  // Save chat history on update
+  useEffect(() => {
+    try {
+      localStorage.setItem('adminChatHistory', JSON.stringify(messages));
+    } catch (e) {
+      console.error('Failed to save chat history', e);
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (isOpen && !isMinimized) {
@@ -105,6 +126,20 @@ export default function AdminChat() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <button 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    if (confirm('هل تريد حذف محادثة الإدارة وبدء دردشة جديدة؟')) {
+                      const initialMsg = [{ role: 'assistant', content: 'مرحباً سيدي المدير، أنا المساعد الإداري الخاص بك. كيف يمكنني مساعدتك أو أي الأقسام تريد إضافة تعليمات لها اليوم؟' }];
+                      setMessages(initialMsg);
+                      localStorage.setItem('adminChatHistory', JSON.stringify(initialMsg));
+                    }
+                  }}
+                  className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                  title="مسح المحادثة"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
                 <button 
                   onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}
                   className="p-1 hover:bg-white/20 rounded-lg transition-colors"
