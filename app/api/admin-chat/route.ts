@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
 
 export async function POST(req: Request) {
   try {
@@ -40,6 +40,9 @@ ${existingKnowledgeText}
 صلاحياتك الحالية:
 1. التعلم وحفظ القواعد: بادر بذكاء واستخدم أداة "save_knowledge" لحفظ أي استراتيجية، قاعدة تسعير، أو تعليمة جديدة يذكرها المدير في الحديث (حتى لو لم يطلب منك حفظها صراحة). إذا كانت المعلومة جديدة ومهمة للأقسام الأخرى، احفظها فوراً!
 2. تحليل البيانات واستخراج التقارير: استخدم أداة "fetch_system_report" متى ما سأل المدير عن الإحصائيات، عدد العملاء، أو المبيعات.
+3. تشغيل الطيار الآلي: استخدم أداة "run_autopilot" متى ما طلب المدير البحث عن عملاء جدد في مجال معين وإرسال عروض لهم.
+4. المراسلة: استخدم أداة "send_quick_email" لإرسال بريد إلكتروني لعميل معين بناءً على طلب المدير.
+5. تنظيف النظام: استخدم أداة "clean_database" لحذف الحملات القديمة والمهام المنتهية إذا طلب المدير ترتيب أو تنظيف النظام.
 
 أجب دائماً باحترافية، وكن استباقياً في اقتراح التحسينات. أكد للمدير دائماً عندما تقوم بحفظ أي قاعدة جديدة في عقلك.`;
 
@@ -74,6 +77,52 @@ ${existingKnowledgeText}
             type: 'object',
             properties: {},
             required: []
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'run_autopilot',
+          description: 'تشغيل الطيار الآلي للبحث عن عملاء جدد وإرسال عروض لهم. يتطلب تحديد مجال البحث وعدد العملاء.',
+          parameters: {
+            type: 'object',
+            properties: {
+              searchQuery: { type: 'string', description: 'مجال البحث (مثال: عيادات تجميل في الرياض)' },
+              targetCount: { type: 'number', description: 'عدد العملاء المطلوب استهدافهم (مثال: 10, 50, 100)' },
+              customProduct: { type: 'string', description: 'اختياري: وصف أو رابط المنتج المراد تسويقه' }
+            },
+            required: ['searchQuery', 'targetCount']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'send_quick_email',
+          description: 'إرسال بريد إلكتروني سريع لعميل معين (مثلاً لتقديم عرض خاص أو الرد على استفسار).',
+          parameters: {
+            type: 'object',
+            properties: {
+              toEmail: { type: 'string', description: 'البريد الإلكتروني للعميل' },
+              subject: { type: 'string', description: 'عنوان الإيميل' },
+              message: { type: 'string', description: 'نص الإيميل (يفضل أن يكون منسقاً HTML إن أمكن أو نص عادي واضح)' }
+            },
+            required: ['toEmail', 'subject', 'message']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'clean_database',
+          description: 'تنظيف قاعدة البيانات من المهام المكتملة والحملات السابقة لتخفيف الضغط على النظام.',
+          parameters: {
+            type: 'object',
+            properties: {
+              target: { type: 'string', description: 'ما الذي يجب تنظيفه؟ (mass_campaigns, contact_messages, or all)' }
+            },
+            required: ['target']
           }
         }
       }
@@ -182,6 +231,99 @@ ${existingKnowledgeText}
           });
           
           continue; // loop again to let AI respond
+        }
+
+        if (toolCall.function.name === 'run_autopilot') {
+          const args = JSON.parse(toolCall.function.arguments);
+          let replyContent = '';
+          
+          try {
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000');
+            const res = await fetch(`${appUrl}/api/mass-campaign`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                searchQuery: args.searchQuery,
+                targetCount: args.targetCount,
+                customProduct: args.customProduct || null
+              })
+            });
+            
+            const data = await res.json();
+            if (res.ok) {
+              replyContent = `تم تشغيل الطيار الآلي بنجاح! معرّف الحملة: ${data.campaignId}. أخبر المدير أن الصاروخ انطلق وسيبدأ بالبحث عن ${args.targetCount} عميل في مجال ${args.searchQuery}.`;
+            } else {
+              replyContent = `حدث خطأ أثناء تشغيل الطيار الآلي: ${data.error}`;
+            }
+          } catch (e: any) {
+            replyContent = `تعذر الاتصال بخادم الطيار الآلي: ${e.message}`;
+          }
+
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: 'run_autopilot',
+            content: replyContent
+          });
+          
+          continue;
+        }
+
+        if (toolCall.function.name === 'send_quick_email') {
+          const args = JSON.parse(toolCall.function.arguments);
+          let replyContent = '';
+          
+          try {
+            // dynamic import to avoid module issues if needed, or import at top. Let's dynamic import.
+            const { sendTestEmail } = await import('@/app/actions/sendEmail');
+            const res = await sendTestEmail(args.message, args.toEmail, undefined, args.subject);
+            
+            if (res.success) {
+              replyContent = `تم إرسال الإيميل بنجاح إلى ${args.toEmail} بعنوان "${args.subject}".`;
+            } else {
+              replyContent = `حدث خطأ أثناء إرسال الإيميل: ${res.error}`;
+            }
+          } catch (e: any) {
+            replyContent = `تعذر إرسال الإيميل: ${e.message}`;
+          }
+
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: 'send_quick_email',
+            content: replyContent
+          });
+          
+          continue;
+        }
+
+        if (toolCall.function.name === 'clean_database') {
+          const args = JSON.parse(toolCall.function.arguments);
+          let replyContent = '';
+          
+          try {
+            let deletedCount = 0;
+            if (args.target === 'mass_campaigns' || args.target === 'all') {
+              const campaigns = await getDocs(query(collection(db, 'mass_campaigns'), where('status', 'in', ['COMPLETED', 'ERROR'])));
+              for (const document of campaigns.docs) {
+                await deleteDoc(doc(db, 'mass_campaigns', document.id));
+                deletedCount++;
+              }
+            }
+            
+            replyContent = `تم تنظيف قاعدة البيانات بنجاح. تم حذف ${deletedCount} سجل من المهام المنتهية/الفاشلة.`;
+          } catch (e: any) {
+            replyContent = `تعذر تنظيف قاعدة البيانات: ${e.message}`;
+          }
+
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: 'clean_database',
+            content: replyContent
+          });
+          
+          continue;
         }
       }
 

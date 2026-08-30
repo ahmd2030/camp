@@ -2,7 +2,7 @@
 
 import { Resend } from 'resend';
 
-export async function sendTestEmail(emailBody: string, toEmail: string = "test@example.com", leadId?: string) {
+export async function sendTestEmail(emailBody: string, toEmail: string = "test@example.com", leadId?: string, customSubject?: string) {
   try {
     const resendApiKey = process.env.RESEND_API_KEY;
     if (!resendApiKey) {
@@ -56,7 +56,7 @@ export async function sendTestEmail(emailBody: string, toEmail: string = "test@e
       from: 'Mango AI <info@mangosai.co>',
       to: [toEmail],
       replyTo: 'ai@reply.mangosai.co',
-      subject: 'رسالة تسويقية ذكية من Mango AI 🚀',
+      subject: customSubject || 'رسالة تسويقية ذكية من Mango AI 🚀',
       html: finalHtmlContent,
     });
 
