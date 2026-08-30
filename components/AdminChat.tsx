@@ -139,6 +139,7 @@ export default function AdminChat() {
       <AnimatePresence>
         {!isOpen && (
           <motion.button
+            key="chat-bot-button"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
@@ -160,6 +161,7 @@ export default function AdminChat() {
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            key="chat-bot-window"
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ 
               opacity: 1, 
