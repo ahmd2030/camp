@@ -43,6 +43,7 @@ ${existingKnowledgeText}
 3. تشغيل الطيار الآلي: استخدم أداة "run_autopilot" متى ما طلب المدير البحث عن عملاء جدد في مجال معين وإرسال عروض لهم.
 4. المراسلة: استخدم أداة "send_quick_email" لإرسال بريد إلكتروني لعميل معين بناءً على طلب المدير.
 5. تنظيف النظام: استخدم أداة "clean_database" لحذف الحملات القديمة والمهام المنتهية إذا طلب المدير ترتيب أو تنظيف النظام.
+6. إدارة المهام المعلقة: إذا طلب منك المدير تنفيذ المهام المعلقة، استخدم أداة "get_pending_requests" لمعرفة الطلبات، ثم اطلب من المدير تزويدك بروابط العمولة لها (إن لم تكن تعرفها)، وبعدها استخدم أداة "approve_request" لإرسالها للعملاء وإنهائها.
 
 أجب دائماً باحترافية، وكن استباقياً في اقتراح التحسينات. أكد للمدير دائماً عندما تقوم بحفظ أي قاعدة جديدة في عقلك.`;
 
@@ -125,10 +126,37 @@ ${existingKnowledgeText}
             required: ['target']
           }
         }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'get_pending_requests',
+          description: 'جلب قائمة بالطلبات المعلقة التي تنتظر الموافقة ورابط العمولة.',
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'approve_request',
+          description: 'الموافقة على طلب معلق وإرسال الإيميل النهائي للعميل مع رابط العمولة.',
+          parameters: {
+            type: 'object',
+            properties: {
+              requestId: { type: 'string', description: 'معرف الطلب (ID)' },
+              affiliateLink: { type: 'string', description: 'رابط الإحالة/العمولة الذي سيتم إرساله للعميل' }
+            },
+            required: ['requestId', 'affiliateLink']
+          }
+        }
       }
     ];
 
-    let maxLoops = 2;
+    let maxLoops = 4; // increased to allow multi-tool sequences
     let currentMessages = [...fullMessages];
 
     for (let i = 0; i < maxLoops; i++) {
@@ -323,6 +351,86 @@ ${existingKnowledgeText}
             content: replyContent
           });
           
+          continue;
+        }
+
+        if (toolCall.function.name === 'get_pending_requests') {
+          let replyContent = '';
+          try {
+            const requestsSnap = await getDocs(query(collection(db, 'requests'), where('status', '==', 'PENDING_AFFILIATE')));
+            if (requestsSnap.empty) {
+              replyContent = 'لا توجد أي طلبات معلقة حالياً.';
+            } else {
+              const pendingList: any[] = [];
+              requestsSnap.forEach(doc => {
+                const data = doc.data();
+                pendingList.push({
+                  id: doc.id,
+                  customerEmail: data.customerEmail,
+                  platform: data.platform || data.productName || 'غير محدد'
+                });
+              });
+              replyContent = `هناك ${pendingList.length} طلبات معلقة:\n${JSON.stringify(pendingList, null, 2)}\n\nاسأل المدير عن روابط الإحالة لهذه المنصات لتتمكن من الموافقة عليها (إلا إذا كنت تحفظ الروابط مسبقاً في عقلك).`;
+            }
+          } catch (e: any) {
+            replyContent = `حدث خطأ أثناء جلب الطلبات: ${e.message}`;
+          }
+
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: 'get_pending_requests',
+            content: replyContent
+          });
+          continue;
+        }
+
+        if (toolCall.function.name === 'approve_request') {
+          const args = JSON.parse(toolCall.function.arguments);
+          let replyContent = '';
+          try {
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000');
+            // Fetch the specific request to get email body
+            // Need to import getDoc from firestore
+            const { getDoc, doc } = await import('firebase/firestore');
+            const reqDocRef = doc(db, 'requests', args.requestId);
+            const reqSnap = await getDoc(reqDocRef);
+            
+            if (!reqSnap.exists()) {
+              replyContent = `الطلب ذو المعرف ${args.requestId} غير موجود.`;
+            } else {
+              const reqData = reqSnap.data();
+              const finalEmailContent = reqData.aiDraftResponse.replace(/\[INSERT_AFFILIATE_LINK_HERE\]/g, args.affiliateLink);
+              
+              const res = await fetch(`${appUrl}/api/send-approval`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: args.requestId,
+                  customerEmail: reqData.customerEmail,
+                  finalEmailContent: finalEmailContent,
+                  affiliateLink: args.affiliateLink,
+                  productName: reqData.productName || '',
+                  platformName: reqData.platform || ''
+                })
+              });
+              
+              if (res.ok) {
+                replyContent = `تم الموافقة على الطلب بنجاح وإرسال الإيميل للعميل ${reqData.customerEmail}.`;
+              } else {
+                replyContent = `فشل إرسال الموافقة: ${await res.text()}`;
+              }
+            }
+          } catch (e: any) {
+            replyContent = `حدث خطأ أثناء الموافقة: ${e.message}`;
+          }
+
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: 'approve_request',
+            content: replyContent
+          });
           continue;
         }
       }
